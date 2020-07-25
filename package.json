@@ -1,0 +1,26 @@
+{
+  "name": "ndarray.js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "build": "webpack --config webpack.prod.js",
+    "devbuild": "webpack --config webpack.dev.js",
+    "test": "mocha -t 5000 --require babel-core/register",
+    "benchmark": "mocha benchmark -t 5000 --require babel-core/register"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.10.5",
+    "@babel/register": "^7.10.5",
+    "babel-core": "^6.26.3",
+    "babel-preset-env": "^1.7.0",
+    "chai": "^4.2.0",
+    "mocha": "^8.0.1",
+    "webpack": "^4.43.0"
+  },
+  "dependencies": {
+    "babel-preset-es2015": "^6.24.1"
+  }
+}
