@@ -4,6 +4,6 @@ const common = require('./webpack.common.js');
 module.exports = merge.merge(common, {
     mode: "production",
     output: {
-        filename: "array.bundle.min.js", 
+        filename: "ndarray.bundle.min.js", 
     }
 });

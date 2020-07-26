@@ -1,0 +1,6 @@
+[submodule "external/emsdk"]
+	path = external/emsdk
+	url = https://github.com/emscripten-core/emsdk.git
+[submodule "external/simd"]
+	path = external/simd
+	url = https://github.com/WebAssembly/simd.git

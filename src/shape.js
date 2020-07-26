@@ -3,12 +3,24 @@ import { buildIndexError, buildRunningTimeError } from "./exception"
 
 class Shape {
 
+    /**
+     * Return the size of a shape array. 
+     * size = prod(shape)
+     * @param  {Array} shape
+     * @returns {Number}
+     */
     static getSizeFromShape(shape) {
         let count = 1;
         for (let r of shape) count *= r;
         return count;
     }
 
+    /**
+     * Check all the dimension of a dummpy array is unify to the given shape.  
+     * @param  {Array} dummy
+     * @param  {Array} shape
+     * @returns {Boolean}
+     */
     static checkShapeUnify(dummy, shape) {
         if (dummy.length != shape[0]) {
             return false;
@@ -23,6 +35,11 @@ class Shape {
         return true;
     }
 
+    /**
+     * Get the shape of a dummpy array after checking its unifity.  
+     * @param  {Array} dummy
+     * @returns {Uint32Array}
+     */
     static getShapeFromDummy(dummy) {
         const shape = [];
     
@@ -35,33 +52,44 @@ class Shape {
 
     static getProjectileFromShape(_shape_array) {
         const dim = _shape_array.length;
+
         const proj = new Uint32Array(dim);
-        proj[dim - 1] = 1;
-        
-        for (let i = dim - 2; i >= 0; i--) {
-            proj[i] = _shape_array[dim - 2 - i] * proj[i + 1];
+
+        proj[0] = 1;
+        for (let i = 1; i < dim; i++) {
+            proj[i] = _shape_array[dim - i] * proj[i - 1];
         }
 
-        return proj;
+        return proj.reverse();
     }
 
+    /**
+     * Return a shape with the given dimension, and all the size is 1. 
+     * @param  {Number} dim
+     */
     static ones(dim) {
-        const _shape_buffer = [];
-        for (let i = 0; i < dim; i++) _shape_buffer.push(1);
-        return new Shape(_shape_buffer);
+        return new Shape(new Array(dim).fill(1));
     }
 
-    constructor(_shape) {
-        if (_shape instanceof Shape) {
-            this.shape = _shape.shape.slice(0);
-        } else {
-            this.shape = new Uint32Array(_shape);
-        }
-        
+    /**
+     * The constructor of Shape. 
+     * @param  {(Array|Shape)} shape - The shape of the array. 
+     */
+    constructor(shapeOrArray) {
+        this.shape = shapeOrArray instanceof Shape ? shapeOrArray.shape.slice(0) : new Uint32Array(shapeOrArray);
         this.dim = this.shape.length;
+
         this.size = Shape.getSizeFromShape(this.shape)
         this.proj = Shape.getProjectileFromShape(this.shape);
         this._index_buffer = new Uint32Array(this.dim);
+    }
+
+    /**
+     * Return the size in the given dimension. 
+     * @param  {Number} pos
+     */
+    at(pos) {
+        return this.shape[pos];
     }
 
     binaryWith(otherShape) {
@@ -101,6 +129,11 @@ class Shape {
         return this._index_buffer;
     }
 
+    /**
+     * Get the absolute index of the given multi-demension index. 
+     * @param  {(Array|Uint32Array)} index
+     * @returns {Number}
+     */
     absolute(index) {
         const n = this.dim
 
@@ -109,40 +142,49 @@ class Shape {
         }
 
         for (let i = 0; i < n; i++) {
-            if (!(0 <= index[i] && index[i] < this.shape[i])) {
+            const limit = this.shape[i];
+            const r = index[i];
+
+            if (!((0 <= r && r < limit) || (0 < -r && -r <= limit))) {
                 throw buildIndexError(`Ileagal access with (${index}) for shape (${this.shape}). `);
             }
         }
 
         let t = 0;
-        for (let i = 0; i < n; i++) t += index[i] * this.proj[i];
+        for (let i = 0; i < n; i++) t += (index[i] >= 0 ? index[i] : this.shape[i] + index[i]) * this.proj[i];
         return t;
     }
 
-    reshape(_new_shape) {
-        const newShape = new Shape(_new_shape);
-
-        if (newShape.size !== this.size) {
-            throw buildRunningTimeError(`Can not be reshaped to ${newShape} from ${this.shape}. `);
+    /**
+     * Check if it's able to reshape and return a new Shape-object. 
+     * @param  {(Array|Uint32Array)} index
+     * @returns {Shape}
+     */
+    reshape(newShapeArray) {
+        if (Shape.getSizeFromShape(newShapeArray) !== this.size) {
+            throw buildRunningTimeError(`Can not be reshaped to ${newShapeArray} from ${this.shape}. `);
         }
 
-        return newShape;
+        return new Shape(newShapeArray);
     }
 
+    /**
+     * Check if two shapes are equal. 
+     * @param  {Shape} otherShape
+     * @returns {Boolean}
+     */
     ifEqual(otherShape) {
         if (otherShape.dim !== this.dim) return false;
 
         for (let i = 0; i < this.dim; i++) {
-            if (this.shape[i] !== otherShape.shape[i]) {
-                return false;
-            }
+            if (this.shape[i] !== otherShape.shape[i]) return false;
         }
 
         return true;
     }
 
     toString() {
-        return this.shape.toString();
+        return `(${this.shape.join(" x ")}) [${this.size}]`;
     }
 }
 

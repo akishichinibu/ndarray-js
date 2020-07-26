@@ -1,5 +1,4 @@
-const array = require("../src/main");
-const { timer } = require("../src/utils");
+const { NdArray } = require("../main");
 const chai = require('chai'), expect = chai.expect;
 
 
@@ -9,7 +8,7 @@ describe('Test base', () => {
         const H = 3;
         const W = 6;
 
-        const s = array.ndArray.random([H, W], "d");
+        const s = NdArray.random([H, W], "d");
         s.show();
 
         it('AccessRight', () => {
@@ -28,25 +27,26 @@ describe('Test base', () => {
             expect(_shape[1]).to.be.equal(2);
             expect(_shape[2]).to.be.equal(3);
 
+            s2.show();
+
             for (let i = 0; i < H; i++) {
                 for (let j = 0; j < 2; j++) {
                     for (let k = 0; k < 3; k++) {
-                        expect(s2.at(i, j, k)).to.be.equal(s2.buffer[i * W + j * 2 + k]);
+                        expect(s2.at(i, j, k)).to.be.equal(s2.buffer[i * 6 + j * 3 + k]);
                     }
                 }
             }
         });
-    }),
+    })
 
     describe("binaryOperation", () => {
         const H = 30;
         const W = 60;
 
-        const s = array.ndArray.ones([H, W, H, W], "d");
-        s.show();
+        const s = NdArray.ones([H, W, H, W], "d");
 
-        s.add(4, true).show();
-        s.flat().show();
+        s.add(4, true);
+        s.flat();
     });
 
 
@@ -54,7 +54,7 @@ describe('Test base', () => {
         const H = 30;
         const W = 60;
 
-        const s = array.ndArray.random([H, W, H], "d");
+        const s = NdArray.random([H, W, H], "d");
         s.show();
         s.sin().show();
     });
@@ -65,8 +65,8 @@ describe('Test base', () => {
         const W = 6;
         const D = 9;
 
-        const s1 = array.ndArray.ones([H, 1, W], "d");
-        let s4 = array.ndArray.zeros([D, ], "d").fill(3);
+        const s1 = NdArray.ones([H, 1, W], "d");
+        let s4 = NdArray.zeros([D, ], "d").fill(3);
 
         let s3;
         
