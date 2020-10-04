@@ -3,3 +3,6 @@ dist
 out
 .idea
 .vscode
+build
+.nyc_output
+

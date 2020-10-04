@@ -1,4 +1,4 @@
-const { NdArray } = require("../main");
+const { NdArray } = require("../src/main");
 const chai = require('chai'), expect = chai.expect;
 var Benchmark = require('benchmark');
 
