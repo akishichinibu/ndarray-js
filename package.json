@@ -1,0 +1,28 @@
+{
+  "name": "ndarray.js",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "jest": {
+    "verbose": true
+  },
+  "scripts": {
+    "build": "webpack -c webpack.config.ts",
+    "test": "jest --coverage"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/chai": "^4.2.16",
+    "@types/jest": "^26.0.22",
+    "@types/node": "^14.14.37",
+    "@types/webpack": "^5.28.0",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.4",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.3"
+  },
+  "dependencies": {
+    "chai": "^4.3.4"
+  }
+}
