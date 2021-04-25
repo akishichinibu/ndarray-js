@@ -29,8 +29,6 @@ export namespace nd {
     const typed_constructor = getTypeConstructor(dtype);
     const buffer = new typed_constructor(shape.size);
 
-    console.log(shape);
-
     fromDummy(dummy, buffer, 0);
     return new NdArray(shape, dtype, buffer);
   }
@@ -50,6 +48,16 @@ export namespace nd {
     }
   }
 
+  /**
+   * create an array whose all elements are 0 with the given shape.
+   * @param shape the shape of the array
+   * @param dtype the type of the array
+   * @example
+   * // output [[0, 0], [0, 0]]
+   * const s = nd.zeros([2, 2], "i8");
+   * s.show();
+   * @returns 
+   */
   export function zeros(shape: Array<number>, dtype: ElementType='f64'): NdArray {
     return new NdArray(shape, dtype).fill(0);
   }
@@ -65,22 +73,23 @@ export namespace nd {
     return r;
   }
 
-  function unaryOperate(operand: NdArray, operator: (x: number) => number): NdArray {
+  function unaryOperate(operand: NdArray, operator: (x: number) => number, dtype: ElementType): NdArray {
     const size = operand.size;
-    const buffer = new Float64Array(size);
+    const BufferType = getTypeConstructor(dtype);
+    const buffer = new BufferType(size);
     const originBuffer = operand.buffer;
     for (let i = 0; i < size; i++) buffer[i] = operator(originBuffer[i]);
-    return new NdArray(operand.shape, "f64", buffer);
+    return new NdArray(operand.shape, dtype, buffer);
   }
 
-  export const sin = (operand: NdArray) => unaryOperate(operand, Math.sin);
-  export const cos = (operand: NdArray) => unaryOperate(operand, Math.cos);
-  export const tan = (operand: NdArray) => unaryOperate(operand, Math.tan);
-  export const sinh = (operand: NdArray) => unaryOperate(operand, Math.sinh);
-  export const cosh = (operand: NdArray) => unaryOperate(operand, Math.cosh);
-  export const tanh = (operand: NdArray) => unaryOperate(operand, Math.tanh);
-  export const exp = (operand: NdArray) => unaryOperate(operand, Math.exp);
-  export const log = (operand: NdArray) => unaryOperate(operand, Math.log);
+  export const sin = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.sin, dtype);
+  export const cos = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.cos, dtype);
+  export const tan = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.tan, dtype);
+  export const sinh = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.sinh, dtype);
+  export const cosh = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.cosh, dtype);
+  export const tanh = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.tanh, dtype);
+  export const exp = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.exp, dtype);
+  export const log = (operand: NdArray, dtype: ElementType='f64') => unaryOperate(operand, Math.log, dtype);
 }
 
 
@@ -89,14 +98,14 @@ export class NdArray {
   private readonly shape_obj: Shape;
   private readonly dtype: ElementType;
 
-  private readonly typed_constructor: new (n: number) => NumericArray;
+  private readonly TypedConstructor: new (n: number) => NumericArray;
   private readonly _buffer: NumericArray;
 
   constructor(shape: Shape | ArrayLike<number>, dtype: ElementType, buffer: NumericArray | null = null) {
     this.shape_obj = shape instanceof Shape ? shape : new Shape(shape);
     this.dtype = dtype;
-    this.typed_constructor = getTypeConstructor(dtype);
-    this._buffer = buffer === null ? new this.typed_constructor(this.shape_obj.size) : buffer;
+    this.TypedConstructor = getTypeConstructor(dtype);
+    this._buffer = buffer === null ? new this.TypedConstructor(this.shape_obj.size) : buffer;
   }
 
   get dim(): number {
@@ -134,6 +143,16 @@ export class NdArray {
     return new NdArray(newShape, this.dtype, this._buffer);
   }
 
+  /**
+   * Execute the unary operation for current array inplace.
+   * The type convension will NOT be handled, 
+   * so if you execute `sin` within an array whose type is i8, 
+   * you will get the result within interger.
+   * 
+   * You can use this method to avoid the copy of the buffer. 
+   * @param operator the operator
+   * @returns current array with executed result
+   */
   unaryOperate(operator: (x: number) => number): NdArray {
     const size = this.size;
     for (let i = 0; i < size; i++) this._buffer[i] = operator(this._buffer[i]);
@@ -228,7 +247,7 @@ export class NdArray {
 
     const size = this.size;
     const newSize = mask.count();
-    const buffer = new this.typed_constructor(newSize);
+    const buffer = new this.TypedConstructor(newSize);
 
     let t = 0;
     for (let i = 0; i < size; i++) {

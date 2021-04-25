@@ -2,23 +2,23 @@ import { expect } from "chai";
 import { nd } from "@src/ndarray";
 
 
-test('a array which all the elements are 0', () => {
+test('a array whose elements are 0', () => {
   const Ss = [3, 6, 5, 3];
 
-  const s1 = nd.zeros(Ss);
-  for (let i = 0; i < s1.size; i++) expect(s1.buffer[i]).to.be.equal(0);
+  const s = nd.zeros(Ss);
+  for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(0);
 });
 
 
-test('a array which all the elements are 1', () => {
+test('a array whose elements are 1', () => {
   const Ss = [3, 6, 5, 3];
 
-  const s2 = nd.ones(Ss);
-  for (let i = 0; i < s2.size; i++) expect(s2.buffer[i]).to.be.equal(1);
+  const s = nd.ones(Ss);
+  for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(1);
 });
 
 
-test('ReshapeAndAccessRight', () => {
+test('flat a array and test if it can be accessed correctly', () => {
   const H = 3;
   const W = 6;
 
@@ -45,7 +45,7 @@ test('ReshapeAndAccessRight', () => {
 });
 
 
-test('construction from a array', () => {
+test('the construction from a array', () => {
   const s = nd.array([
     [1, 2, 3],
     [10, 20, 30],

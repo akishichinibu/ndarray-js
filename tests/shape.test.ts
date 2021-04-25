@@ -33,7 +33,7 @@ test("GetShapeFromDummy1", () => {
 });
 
 
-test("GetShapeFromDummy2", () => {
+test("get shape from a dummy array", () => {
   const dummy = [
     [
       [1, 2, 3],
@@ -47,7 +47,7 @@ test("GetShapeFromDummy2", () => {
 });
 
 
-test("CheckShapeUnify1", () => {
+test("check an array is unify", () => {
   const dummy1 = [
     [1, 2, 3],
     [4, 5, 6],

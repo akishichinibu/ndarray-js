@@ -2,7 +2,7 @@ import { between, isScalar } from "../src/utils";
 import { expect } from "chai";
 
 
-test('test `between` ', () => {
+test('between', () => {
   expect(between(1, 1, 2)).to.be.true;
   expect(between(2, 1, 2)).to.be.false;
   expect(between(1.5, 1, 2)).to.be.true;
@@ -12,7 +12,7 @@ test('test `between` ', () => {
 });
 
 
-test('test `isScalar`', () => {
+test('isScalar', () => {
   expect(isScalar(1)).to.be.true;
   expect(isScalar(1.5)).to.be.true;
   expect(isScalar(true)).to.be.true;
