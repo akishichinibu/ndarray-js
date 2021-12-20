@@ -1,19 +1,19 @@
 import { expect } from "chai";
-import { nd } from "@src/ndarray";
+import { array, ones, random, sin, zeros } from "src/ndarray";
 
 
-test('a array whose elements are 0', () => {
+test('a array whose elements are all 0', () => {
   const Ss = [3, 6, 5, 3];
 
-  const s = nd.zeros(Ss);
+  const s = zeros(Ss);
   for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(0);
 });
 
 
-test('a array whose elements are 1', () => {
+test('a array whose elements are all 1', () => {
   const Ss = [3, 6, 5, 3];
 
-  const s = nd.ones(Ss);
+  const s = ones(Ss);
   for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(1);
 });
 
@@ -22,7 +22,7 @@ test('flat a array and test if it can be accessed correctly', () => {
   const H = 3;
   const W = 6;
 
-  const s = nd.random([H, W]);
+  const s = random([H, W]);
   s.show();
 
   const s2 = s.reshape([H, 2, 3]);
@@ -45,13 +45,13 @@ test('flat a array and test if it can be accessed correctly', () => {
 });
 
 
-test('the construction from a array', () => {
-  const s = nd.array([
+test('the construction from a array', async () => {
+  const s = await array([
     [1, 2, 3],
     [10, 20, 30],
     [100, 200, 300],
   ], "i32");
-  
+
   s.show();
 
   expect(Array.from(s.shape)).to.have.ordered.members([3, 3]);
@@ -64,16 +64,16 @@ test('the construction from a array', () => {
 });
 
 
-test('UnaryOperationInplace1', () => {
+test('inplace unary operation', () => {
   const H = 3;
   const W = 6;
 
-  const s1 = nd.random([H, W]);
+  const s1 = random([H, W]);
   s1.show();
 
   const size = s1.size;
 
-  const s3 = nd.sin(s1);
+  const s3 = sin(s1);
   for (let i = 0; i < size; i++) expect(Math.sin(s1.buffer[i])).to.be.equal(s3.buffer[i]);
 
   const s2 = s3.cos();
@@ -86,16 +86,16 @@ test('UnaryOperationInplace1', () => {
 });
 
 
-test('Slice', () => {
+test('array slice', () => {
   const H = 3;
   const W = 6;
 
-  const s1 = nd.random([H, W]);
+  const s1 = random([H, W]);
   s1.show();
 
   const size = s1.size;
 
-  const s3 = nd.sin(s1);
+  const s3 = sin(s1);
   for (let i = 0; i < size; i++) expect(Math.sin(s1.buffer[i])).to.be.equal(s3.buffer[i]);
 
   const s2 = s3.cos();
@@ -105,9 +105,4 @@ test('Slice', () => {
   const e2 = s3.equal(s2);
   e2.show();
   expect(e2.all()).to.be.true;
-});
-
-
-test('SimpleOutput', () => {
-
 });

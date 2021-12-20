@@ -9,3 +9,5 @@ coverage
 node_modules
 node_modules
 .cache
+
+package-lock.json

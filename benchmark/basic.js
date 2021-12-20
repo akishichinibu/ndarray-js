@@ -1,26 +1,27 @@
-const { NdArray } = require("../src/main");
+const { NdArray } = require("../src/container/NdArray");
 const chai = require('chai'), expect = chai.expect;
 var Benchmark = require('benchmark');
 
 const suite = new Benchmark.Suite;
 
 (() => {
-    const H = 30;
-    const W = 60;
-    const s = NdArray.ones([H, W, H, W], "d");
+  const H = 30;
+  const W = 60;
+  const s = NdArray.ones([H, W, H, W], "d");
 
-    suite.add('boardcast#add', function() {
-        s.add(4, true);
-    }).add("boardcast#sub", function() {
-        s.sub(-5, true);
-    }).add("boardcast#mul", function() {
-        s.mul(7, true);
-    }).add("boardcast#div", function() {
-        s.div(3, true);
-    }).add("boardcast#mod", function() {
-        s.mod(17, true);
-    })
-    s.show();
+  suite.add('boardcast#add', function() {
+    s.add(4, true);
+  }).add("boardcast#sub", function() {
+    s.sub(-5, true);
+  }).add("boardcast#mul", function() {
+    s.mul(7, true);
+  }).add("boardcast#div", function() {
+    s.div(3, true);
+  }).add("boardcast#mod", function() {
+    s.mod(17, true);
+  })
+
+  s.show();
 })()
 
 suite.run({ 'async': false });

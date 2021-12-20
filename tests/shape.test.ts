@@ -1,24 +1,24 @@
 import { expect } from "chai";
 
-import { Shape, sp } from "@src/shape";
-import { IndexError } from "@src/exception";
-import { isScalar } from "@src/utils";
+import { Shape, shape, ones } from "src/shape";
+import { IndexError } from "src/exception";
+import { isScalar } from "src/utils";
 
 
 test('a array with zero dimension', () => {
   expect(() => {
-    const s1 = sp.shape([]);
+    shape([]);
   }).to.throw(IndexError);
 });
 
 
 test('a array which all the dimensions are set to be one', () => {
-  const s1 = sp.ones(5);
+  const s1 = ones(5);
   for (let i = 0; i < 5; i++) expect(s1.at(i)).to.be.equal(1);
 });
 
 
-test("GetShapeFromDummy1", () => {
+test("get shape from an array", () => {
   const dummy = [
     [1, 2, 3],
     [4, 5, 6],
@@ -28,12 +28,12 @@ test("GetShapeFromDummy1", () => {
   expect(isScalar(dummy[0])).to.be.false;
   expect(isScalar(dummy[0][0])).to.be.true;
 
-  const s = Shape.getShapeFromDummy(dummy);
+  const s = Shape.getShapeFromAnyArray(dummy);
   expect(Array.from(s)).to.have.ordered.members([2, 3]);
 });
 
 
-test("get shape from a dummy array", () => {
+test("get shape from an array which is not unify", () => {
   const dummy = [
     [
       [1, 2, 3],
@@ -42,38 +42,35 @@ test("get shape from a dummy array", () => {
     []
   ];
 
-  const s = Shape.getShapeFromDummy(dummy);
+  const s = Shape.getShapeFromAnyArray(dummy);
   expect(Array.from(s)).to.have.ordered.members([2, 2, 3]);
 });
 
 
-test("check an array is unify", () => {
+test("check if an array is unify", async () => {
   const dummy1 = [
     [1, 2, 3],
     [4, 5, 6],
   ];
-  
-  expect(Shape.checkShapeUnify(dummy1, [2, 3])).to.be.true;
-  expect(Shape.checkShapeUnify(dummy1, [3, 3])).to.be.false;
+
+  expect(await Shape.checkIfShapeUnify(dummy1, [2, 3])).to.be.true;
+  expect(await Shape.checkIfShapeUnify(dummy1, [3, 3])).to.be.false;
 
   const dummy2 = [
     [1, 2, 3],
   ];
 
-  expect(Shape.checkShapeUnify(dummy2, [1, 3])).to.be.true;
-  expect(Shape.checkShapeUnify(dummy2, [2, 3])).to.be.false;
+  expect(await Shape.checkIfShapeUnify(dummy2, [1, 3])).to.be.true;
+  expect(await Shape.checkIfShapeUnify(dummy2, [2, 3])).to.be.false;
 
   const dummy3 = [
-    [1, ],
+    [1,],
   ];
 
-  expect(Shape.checkShapeUnify(dummy3, [1, 1])).to.be.true;
-  expect(Shape.checkShapeUnify(dummy3, [1, ])).to.be.false;
-});
+  expect(await Shape.checkIfShapeUnify(dummy3, [1, 1])).to.be.true;
+  expect(await Shape.checkIfShapeUnify(dummy3, [1,])).to.be.false;
 
-
-test("CheckShapeUnify2", () => {
-  const dummy = [
+  const dummy4 = [
     [
       [1, 2, 3],
       [4,],
@@ -81,6 +78,6 @@ test("CheckShapeUnify2", () => {
     []
   ];
 
-  expect(Shape.checkShapeUnify(dummy, [2, 2, 3])).to.be.false;
-  expect(Shape.checkShapeUnify(dummy, [3, 3, 3])).to.be.false;
+  expect(await Shape.checkIfShapeUnify(dummy4, [2, 2, 3])).to.be.false;
+  expect(await Shape.checkIfShapeUnify(dummy4, [3, 3, 3])).to.be.false;
 });
