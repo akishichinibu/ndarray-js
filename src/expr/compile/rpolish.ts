@@ -1,5 +1,6 @@
-import { CouldBePromise } from "src/type";
-import { VariableType, TokenStream, TokenType, operatorPrecedence } from "./utils";
+import { operators } from "./op";
+import { TokenStream, TokenType } from "./token";
+import { VariableType } from "./utils";
 
 
 function* toReversePolish(stream: TokenStream<VariableType>): Generator<[TokenType, VariableType]> {
@@ -16,11 +17,11 @@ function* toReversePolish(stream: TokenStream<VariableType>): Generator<[TokenTy
         break;
       }
       case TokenType.Operator: {
-        const currentPrecedence = operatorPrecedence.get(token as string)!;
+        const currentPrecedence = operators.get(token as string)!;
 
         while (stack.length > 0) {
           const [type, op] = stack[stack.length - 1];
-          const previousPrecedence = operatorPrecedence.get(op)!;
+          const previousPrecedence = operators.get(op)!;
 
           if (type !== TokenType.LeftParenthesis && previousPrecedence > currentPrecedence) {
             yield stack.pop()!;

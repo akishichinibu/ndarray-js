@@ -1,113 +1,118 @@
-import { IndexError } from "./exception";
+import { IndexError, RunningTimeError } from "./exception";
 import { Shape, NdArray } from "./container";
 import { getTypeConstructor, NumericArray, ScalerType } from "./type";
-import { isScalar } from "./utils";
+import { shape } from "./shape";
+import { fromAnyArrayGenerator } from "./container/utils";
+import allocator from "./allocator";
+import wasm from "src/wasm";
 
 
-async function* fromAnyArrayGenerator(anyArray: any, buffer: NumericArray) {
-  const queue: Array<[any, number]> = [[anyArray, 0],];
-
-  while (queue.length > 0) {
-    const [a, offset] = queue.shift()!;
-    const length: number = a.length ?? 0;
-
-    if (length === 0) {
-      throw new IndexError(`Got an empty array with size 0 in pos ${offset}`);
-    }
-
-    const isScalarVector = isScalar(a[0]);
-
-    if (isScalarVector) {
-      for (let i = 0; i < length; i++) buffer[offset + i] = a[i];
-    } else {
-      for (let i = 0; i < length; i++) {
-        queue.unshift([a[i], offset + i * length]);
-      }
-    }
-
-    yield;
-  }
-}
+type GenericShape = ArrayLike<number> | Shape;
 
 
-export async function array(dummy: any, dtype: ScalerType = 'f64') {
+async function array(dummy: any, dtype: ScalerType = 'f64') {
   let shapeArray: Uint32Array;
 
   try {
-    shapeArray = Shape.getShapeFromAnyArray(dummy);
+    shapeArray = await Shape.getShapeFromAnyArray(dummy);
   } catch (e) {
     throw new IndexError("The given array is not iterable. ");
   }
 
-  if (!Shape.checkIfShapeUnify(dummy, shapeArray)) {
+  if (!await Shape.checkIfShapeUnify(dummy, shapeArray)) {
     throw new IndexError(`The given array is not fit to shape ${shapeArray}`);
   }
 
   const shape = new Shape(shapeArray);
+  const array = new NdArray({ shape });
 
-  const TypedConstructor = getTypeConstructor(dtype);
-  const buffer = new TypedConstructor(shape.size);
-
-  const tasks = fromAnyArrayGenerator(dummy, buffer);
+  const tasks = fromAnyArrayGenerator(dummy, array.buffer);
   for await (let _ of tasks) { }
 
-  return new NdArray({
-    shape,
-    dtype,
-    buffer,
-  });
+  return array;
 }
 
 
-
-/**
- * create an array whose all elements are 0 with the given shape.
- * @param shape the shape of the array
- * @param dtype the type of the array
- * @example
- * // output [[0, 0], [0, 0]]
- * const s = nd.zeros([2, 2], "i8");
- * s.show();
- * @returns 
- */
-export function zeros(shape: Array<number>, dtype: ScalerType = 'f64'): NdArray {
-  return new NdArray({shape, dtype}).fill(0);
+function fromShape(shape_: GenericShape, dtype: ScalerType = 'f64') {
+  const s = shape_ instanceof Shape ? shape_ : shape(shape_);
+  return new NdArray({ shape: s, dtype });
 }
 
-export function ones(shape: Array<number>, dtype: ScalerType = 'f64'): NdArray {
-  return new NdArray({shape, dtype}).fill(1);
+
+function zeros(shape_: GenericShape, dtype: ScalerType = 'f64'): NdArray {
+  return fromShape(shape_, dtype).fill(0);
 }
 
-export function random(shape: Array<number>): NdArray {
-  const r = zeros(shape);
-  const buffer = r.buffer;
-  for (let i = 0; i < r.size; i++) buffer[i] = Math.random();
-  return r;
+
+function ones(shape_: GenericShape, dtype: ScalerType = 'f64'): NdArray {
+  return fromShape(shape_, dtype).fill(1);
 }
 
-function unaryOperate(operand: NdArray, operator: (x: number) => number, dtype: ScalerType): NdArray {
+
+function random(shape_: GenericShape, dtype: ScalerType = 'f64'): NdArray {
+  const array = fromShape(shape_, dtype);
+  for (let i = 0; i < array.size; i++) array.buffer[i] = Math.random();
+  return array;
+}
+
+
+type UnaryOperator = (operand: NdArray) => NdArray;
+
+
+function unaryOperateToFloat64(operand: NdArray, operator: string): NdArray {
   const size = operand.size;
-  const BufferType = getTypeConstructor(dtype);
-  const buffer = new BufferType(size);
-  const originBuffer = operand.buffer;
-  for (let i = 0; i < size; i++) buffer[i] = operator(originBuffer[i]);
-  return new NdArray({
-    shape: operand.shape, 
-    dtype, 
-    buffer,
-  });
+  const result = new NdArray({ shape: operand.shapeObj, dtype: "f64" });
+  result.fillBy(operand);
+  wasm.unaryOperator_f64(wasm.SinFloat64Id, size, result.bufferPtr, result.bufferPtr);
+  return result;
 }
 
-export const sin = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.sin, dtype);
-export const cos = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.cos, dtype);
-export const tan = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.tan, dtype);
-export const sinh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.sinh, dtype);
-export const cosh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.cosh, dtype);
-export const tanh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.tanh, dtype);
-export const exp = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.exp, dtype);
-export const log = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.log, dtype);
+
+const _ = {
+  array,
+  zeros,
+  ones,
+  random,
+};
 
 
-export {
-  NdArray,
+const handler: ProxyHandler<any> = {
+  get: (obj: any, props: any) => {
+    if (props in obj) {
+      return obj[props];
+    }
+
+    switch (props) {
+      case "sin": case "cos": {
+        obj[props] = (operand: NdArray) => unaryOperateToFloat64(operand, props);
+        return obj[props];
+      }
+      default: {
+        throw new RunningTimeError(`Unknown operator ${props}`);
+      }
+    }
+  }
 }
+
+
+interface Nd {
+
+  array: typeof array,
+  zeros: typeof zeros,
+  ones: typeof ones,
+  random: typeof random,
+
+  sin: UnaryOperator;
+  cos: UnaryOperator;
+}
+
+
+export const nd = new Proxy(_, handler) as Nd;
+
+  // export const cos = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.cos, dtype);
+  // export const tan = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.tan, dtype);
+  // export const sinh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.sinh, dtype);
+  // export const cosh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.cosh, dtype);
+  // export const tanh = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.tanh, dtype);
+  // export const exp = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.exp, dtype);
+  // export const log = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.log, dtype);

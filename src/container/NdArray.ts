@@ -1,31 +1,32 @@
-import { IndexError } from "src/exception";
-import { getTypeConstructor, NumericArray, ScalerType } from "src/type";
+import allocator, { dtypeWasmName } from "src/allocator";
+import { IndexError, RunningTimeError } from "src/exception";
+import { shape } from "src/shape";
+import { getTypeConstructor, NumericArray, Ptr, ScalerType } from "src/type";
 import { Shape } from "./Shape";
+import wasm from "src/wasm";
 
 
 interface NdArrayConstructProps {
-  shape: Shape | ArrayLike<number>;
+  shape: Shape;
   dtype?: ScalerType;
-  buffer?: NumericArray | null;
+  bufferPtr?: Ptr;
 }
 
 
 export class NdArray {
-
-  private readonly shapeObj: Shape;
-  private readonly dtype: ScalerType;
-
-  private readonly TypedConstructor: new (n: number) => NumericArray;
-  readonly buffer: NumericArray;
+  readonly dtype: ScalerType;
+  readonly bufferPtr: Ptr;
+  readonly shapeObj: Shape;
 
   constructor(props: NdArrayConstructProps) {
-    const shape = props.shape;
-    const dtype = props.dtype ?? "f64";
-    // shape: Shape | ArrayLike<number>, dtype: ScalerType, buffer: NumericArray | null = null
-    this.shapeObj = shape instanceof Shape ? shape : new Shape(shape);
-    this.dtype = dtype;
-    this.TypedConstructor = getTypeConstructor(dtype);
-    this.buffer = props.buffer ?? new this.TypedConstructor(this.shapeObj.size);
+    this.shapeObj = props.shape;
+    this.dtype = props.dtype ?? "f64";
+
+    if (!dtypeWasmName.has(this.dtype)) {
+      throw new RunningTimeError(`Invalid data type ${this.dtype}`);
+    }
+
+    this.bufferPtr = props.bufferPtr ?? allocator.allocateWasm(this.dtype, this.shapeObj.size);
   }
 
   get dim(): number {
@@ -40,161 +41,177 @@ export class NdArray {
     return this.shapeObj.shape;
   }
 
+  get buffer(): NumericArray {
+    const name = dtypeWasmName.get(this.dtype)!;
+    return wasm[`__get${name}ArrayView`](this.bufferPtr);
+  }
+
   fill(value: number): NdArray {
     this.buffer.fill(value);
     return this;
   }
 
   at(...index: Array<number>): number {
-    return this.buffer[this.shapeObj.absoluteIndex(index)];
+    return this.buffer[this.shapeObj.linearIndex(index)];
   }
 
   reshape(newShapeArray: Array<number>): NdArray {
     const newShape = this.shapeObj.reshape(newShapeArray);
     return new NdArray({
-      shape: newShape, 
+      shape: newShape,
       dtype: this.dtype,
-      buffer: this.buffer,
+      bufferPtr: this.bufferPtr,
     });
   }
 
   flat(): NdArray {
     const newShape = this.shapeObj.reshape([this.shapeObj.size,]);
     return new NdArray({
-      shape: newShape, 
+      shape: newShape,
       dtype: this.dtype,
-      buffer: this.buffer,
+      bufferPtr: this.bufferPtr,
     });
   }
 
-  /**
-   * Execute the unary operation for current array inplace.
-   * The type convension will NOT be handled, 
-   * so if you execute `sin` within an array whose type is i8, 
-   * you will get the result within interger.
-   * 
-   * You can use this method to avoid the copy of the buffer. 
-   * @param operator the operator
-   * @returns current array with executed result
-   */
-  unaryOperate(operator: (x: number) => number): NdArray {
-    const size = this.size;
-    for (let i = 0; i < size; i++) this.buffer[i] = operator(this.buffer[i]);
+  fillBy(other: NdArray) {
+    if (this.size !== other.size) {
+      throw new Error("");
+    }
+
+    for (let i = 0; i < this.size; i++) this.buffer[i] = other.buffer[i];
     return this;
   }
 
-  sin = () => this.unaryOperate(Math.sin);
-  cos = () => this.unaryOperate(Math.cos);
-  tan = () => this.unaryOperate(Math.tan);
-  sinh = () => this.unaryOperate(Math.sinh);
-  cosh = () => this.unaryOperate(Math.cosh);
-  tanh = () => this.unaryOperate(Math.tanh);
+  // /**
+  //  * Execute the unary operation for current array inplace.
+  //  * The type convension will NOT be handled, 
+  //  * so if you execute `sin` within an array whose type is i8, 
+  //  * you will get the result within interger.
+  //  * 
+  //  * You can use this method to avoid the copy of the buffer. 
+  //  * @param operator the operator
+  //  * @returns current array with executed result
+  //  */
+  // unaryOperate(operator: (x: number) => number): NdArray {
+  //   const size = this.size;
+  //   for (let i = 0; i < size; i++) this.buffer[i] = operator(this.buffer[i]);
+  //   return this;
+  // }
 
-  exp = () => this.unaryOperate(Math.exp);
-  log = () => this.unaryOperate(Math.log);
-  bitNot = () => this.unaryOperate((a) => ~a);
-  logicalNot = () => this.unaryOperate((a) => a === 0 ? 1 : 0);
+  // sin = () => this.unaryOperate(Math.sin);
+  // cos = () => this.unaryOperate(Math.cos);
+  // tan = () => this.unaryOperate(Math.tan);
+  // sinh = () => this.unaryOperate(Math.sinh);
+  // cosh = () => this.unaryOperate(Math.cosh);
+  // tanh = () => this.unaryOperate(Math.tanh);
 
-  binaryOperateScalar(operator: (a: number, b: number) => number, operand: number, dtype: ScalerType): NdArray {
-    const typed_constructor = getTypeConstructor(dtype);
-    const result = new typed_constructor(this.size);
-    for (let i = 0; i < this.shapeObj.size; i++) result[i] = operator(this.buffer[i], operand);
-    return new NdArray({
-      shape: this.shapeObj, 
-      dtype, 
-      buffer: result,
-    });
-  }
+  // exp = () => this.unaryOperate(Math.exp);
+  // log = () => this.unaryOperate(Math.log);
+  // bitNot = () => this.unaryOperate((a) => ~a);
+  // logicalNot = () => this.unaryOperate((a) => a === 0 ? 1 : 0);
 
-  binaryOperateNdarray(operator: (a: number, b: number) => number, operand: NdArray, dtype: ScalerType): NdArray {
-    let resultShape = this.shapeObj.binary(operand.shapeObj);
+  // binaryOperateScalar(operator: (a: number, b: number) => number, operand: number, dtype: ScalerType): NdArray {
+  //   const typed_constructor = getTypeConstructor(dtype);
+  //   const result = new typed_constructor(this.size);
+  //   for (let i = 0; i < this.shapeObj.size; i++) result[i] = operator(this.buffer[i], operand);
+  //   return new NdArray({
+  //     shape: this.shapeObj,
+  //     dtype,
+  //     buffer: result,
+  //   });
+  // }
 
-    const size = resultShape.size;
-    const typed_constructor = getTypeConstructor(dtype);
-    const result = new typed_constructor(size);
+  // binaryOperateNdarray(operator: (a: number, b: number) => number, operand: NdArray, dtype: ScalerType): NdArray {
+  //   let resultShape = this.shapeObj.binaryOperation(operand.shapeObj);
 
-    for (let i = 0; i < size; i++) {
-      const a = this.buffer[this.shapeObj.absoluteIndexUnsafe(this.shapeObj.reveseAbsoluteIndexUnsafe(i))];
-      const b = operand.buffer[operand.shapeObj.absoluteIndexUnsafe(operand.shapeObj.reveseAbsoluteIndexUnsafe(i))];
-      result[i] = operator(a, b);
-    }
+  //   const size = resultShape.size;
+  //   const typed_constructor = getTypeConstructor(dtype);
+  //   const result = new typed_constructor(size);
 
-    return new NdArray({
-      shape: resultShape, 
-      dtype, 
-      buffer: result,
-    });
-  }
+  //   for (let i = 0; i < size; i++) {
+  //     const a = this.buffer[this.shapeObj.linearIndex(this.shapeObj.reverseLinearIndex(i))];
+  //     const b = operand.buffer[operand.shapeObj.linearIndex(operand.shapeObj.reverseLinearIndex(i))];
+  //     result[i] = operator(a, b);
+  //   }
 
-  binaryOperate(operator: (a: number, b: number) => number, operand: number | NdArray, dtype: ScalerType = "f64"): NdArray {
-    if (operand instanceof NdArray) {
-      return this.binaryOperateNdarray(operator, operand, dtype);
-    } else {
-      return this.binaryOperateScalar(operator, operand, dtype);
-    }
-  }
+  //   return new NdArray({
+  //     shape: resultShape,
+  //     dtype,
+  //     buffer: result,
+  //   });
+  // }
 
-  add = (operand: number | NdArray) => this.binaryOperate((a, b) => a + b, operand);
-  sub = (operand: number | NdArray) => this.binaryOperate((a, b) => a - b, operand);
-  mul = (operand: number | NdArray) => this.binaryOperate((a, b) => a * b, operand);
-  div = (operand: number | NdArray) => this.binaryOperate((a, b) => a / b, operand);
-  pow = (operand: number | NdArray) => this.binaryOperate((a, b) => a ** b, operand);
-  equal = (operand: number | NdArray) => this.binaryOperate((a, b) => a === b ? 1 : 0, operand, "u8");
-  notEqual = (operand: number | NdArray) => this.binaryOperate((a, b) => a !== b ? 1 : 0, operand, "u8");
+  // binaryOperate(operator: (a: number, b: number) => number, operand: number | NdArray, dtype: ScalerType = "f64"): NdArray {
+  //   if (operand instanceof NdArray) {
+  //     return this.binaryOperateNdarray(operator, operand, dtype);
+  //   } else {
+  //     return this.binaryOperateScalar(operator, operand, dtype);
+  //   }
+  // }
 
-  bitAnd = (operand: number | NdArray) => this.binaryOperate((a, b) => a & b, operand, "u32");
-  bitOr = (operand: number | NdArray) => this.binaryOperate((a, b) => a | b, operand, "u32");
-  bitXor = (operand: number | NdArray) => this.binaryOperate((a, b) => a ^ b, operand, "u32");
-  bitShl = (operand: number | NdArray) => this.binaryOperate((a, b) => a << b, operand, "u32");
-  bitShr = (operand: number | NdArray) => this.binaryOperate((a, b) => a >> b, operand, "u32");
-  logicalAnd = (operand: number | NdArray) => this.binaryOperate((a, b) => a && b, operand, "u8");
-  logicalOr = (operand: number | NdArray) => this.binaryOperate((a, b) => a || b ? 1 : 0, operand, "u8");
+  // add = (operand: number | NdArray) => this.binaryOperate((a, b) => a + b, operand);
+  // sub = (operand: number | NdArray) => this.binaryOperate((a, b) => a - b, operand);
+  // mul = (operand: number | NdArray) => this.binaryOperate((a, b) => a * b, operand);
+  // div = (operand: number | NdArray) => this.binaryOperate((a, b) => a / b, operand);
+  // pow = (operand: number | NdArray) => this.binaryOperate((a, b) => a ** b, operand);
+  // equal = (operand: number | NdArray) => this.binaryOperate((a, b) => a === b ? 1 : 0, operand, "u8");
+  // notEqual = (operand: number | NdArray) => this.binaryOperate((a, b) => a !== b ? 1 : 0, operand, "u8");
 
-  all() {
-    for (let i = 0; i < this.size; i++) {
-      if (this.buffer[i] === 0) return false;
-    }
-    return true;
-  }
+  // bitAnd = (operand: number | NdArray) => this.binaryOperate((a, b) => a & b, operand, "u32");
+  // bitOr = (operand: number | NdArray) => this.binaryOperate((a, b) => a | b, operand, "u32");
+  // bitXor = (operand: number | NdArray) => this.binaryOperate((a, b) => a ^ b, operand, "u32");
+  // bitShl = (operand: number | NdArray) => this.binaryOperate((a, b) => a << b, operand, "u32");
+  // bitShr = (operand: number | NdArray) => this.binaryOperate((a, b) => a >> b, operand, "u32");
+  // logicalAnd = (operand: number | NdArray) => this.binaryOperate((a, b) => a && b, operand, "u8");
+  // logicalOr = (operand: number | NdArray) => this.binaryOperate((a, b) => a || b ? 1 : 0, operand, "u8");
 
-  any() {
-    for (let i = 0; i < this.size; i++) {
-      if (this.buffer[i] !== 0) return true;
-    }
-    return false;
-  }
+  // all() {
+  //   for (let i = 0; i < this.size; i++) {
+  //     if (this.buffer[i] === 0) return false;
+  //   }
+  //   return true;
+  // }
 
-  count() {
-    let c = 0;
-    for (let i = 0; i < this.size; i++) {
-      if (this.buffer[i] !== 0) c += 1;
-    }
-    return c;
-  }
+  // any() {
+  //   for (let i = 0; i < this.size; i++) {
+  //     if (this.buffer[i] !== 0) return true;
+  //   }
+  //   return false;
+  // }
 
-  slice(mask: NdArray) {
-    if (!mask.shapeObj.isEqual(this.shapeObj)) {
-      throw new IndexError(`The shape of the mask array [${mask.shape}] must be the same as [${this.shape}]. `);
-    }
+  // count() {
+  //   let c = 0;
+  //   for (let i = 0; i < this.size; i++) {
+  //     if (this.buffer[i] !== 0) c += 1;
+  //   }
+  //   return c;
+  // }
 
-    const size = this.size;
-    const newSize = mask.count();
-    const buffer = new this.TypedConstructor(newSize);
+  // slice(mask: NdArray) {
+  //   if (!mask.shapeObj.isEqual(this.shapeObj)) {
+  //     throw new IndexError(`The shape of the mask array [${mask.shape}] must be the same as [${this.shape}]. `);
+  //   }
 
-    let t = 0;
-    for (let i = 0; i < size; i++) {
-      if (mask.buffer[i] !== 0) {
-        buffer[t] = this.buffer[i];
-        t += 1;
-      }
-    }
+  //   const size = this.size;
+  //   const newSize = mask.count();
+  //   const buffer = new this.TypedConstructor(newSize);
 
-    return new NdArray({
-      shape: [newSize,], 
-      dtype: this.dtype, 
-      buffer,
-    });
-  }
+  //   let t = 0;
+  //   for (let i = 0; i < size; i++) {
+  //     if (mask.buffer[i] !== 0) {
+  //       buffer[t] = this.buffer[i];
+  //       t += 1;
+  //     }
+  //   }
+
+  //   const newShape = shape([newSize,]);
+
+  //   return new NdArray({
+  //     shape: newShape,
+  //     dtype: this.dtype,
+  //     buffer,
+  //   });
+  // }
 
   private prettyString(curSlice: Array<number>, maxLength: number | null = null): string {
     maxLength = maxLength === null ? Math.round(100 ** (1.0 / this.dim)) : maxLength!;

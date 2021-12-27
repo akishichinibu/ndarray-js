@@ -1,49 +1,22 @@
 import allocator from "src/allocator";
+import wasm from "src/wasm";
+
 import { IndexError, RunningTimeError } from "src/exception";
 import { shape } from "src/shape";
 import { between, isScalar, isScalarArray } from "src/utils";
-
-
-async function* checkIfShapeUnifyGenerator(anyArray: any, shape: ArrayLike<number>) {
-  const dim = shape.length;
-
-  if (dim === 0) {
-    yield false;
-    return;
-  }
-
-  const queue: Array<[any, number]> = [[anyArray, 0], ];
-
-  while (queue.length > 0) {
-    const [a, dimth] = queue.shift()!;
-    const targetLength = shape[dimth];
-
-    if (a.length !== targetLength) {
-      yield false;
-    };
-
-    if (dimth === dim - 1) {
-      yield isScalarArray(a);
-      continue;
-    }
-
-    for (let r of a) {
-      queue.push([r, dimth + 1]);
-    }
-  }
-
-  yield true;
-}
+import { calcProjection, calcRestrict, calcSize, checkIfShapeUnifyGenerator, calcLinearIndex, calcLinearReverseIndex } from "./utils";
+import { Ptr } from "src/type";
 
 
 export class Shape {
 
-  readonly shape: Uint32Array;
   readonly dim: number;
+  readonly size: number;
+  readonly shapePtr: Ptr;
 
-  private readonly projection: Uint32Array;
-  private readonly restrict: Uint32Array;
-  private readonly buffer: Uint32Array;
+  private readonly projectionPtr: Ptr;
+  private readonly restrictPtr: Ptr;
+  private readonly bufferPtr: Ptr;
 
   constructor(shapeArray: ArrayLike<number>) {
     this.dim = shapeArray.length;
@@ -52,51 +25,58 @@ export class Shape {
       throw new IndexError("The dimension of the shape cann't not be 0. ");
     }
 
-    this.shape = allocator.allocateU32(this.dim);
-    for (let i = 0; i < this.dim; i++) this.shape[i] = shapeArray[i];
+    this.shapePtr = allocator.allocateU32Wasm(this.dim, Array.from(shapeArray));
+    console.log(this.dim, this.shapePtr);
+    console.log(this.shape);
 
-    this.projection = this.getProjection();
-    this.restrict = this.getRestrictFromShape();
+    this.size = wasm.calcSize(this.dim, this.shapePtr);
 
-    this.buffer = allocator.allocateU32(this.dim);
+    this.projectionPtr = allocator.allocateU32Wasm(this.dim);
+    wasm.calcProjection(this.dim, this.shapePtr, this.projectionPtr);
+
+    this.restrictPtr = allocator.allocateU32Wasm(this.dim);
+    wasm.calcRestrict(this.dim, this.shapePtr, this.restrictPtr);
+
+    this.bufferPtr = allocator.allocateU32Wasm(this.dim);
   }
 
-  private getProjection() {
-    const buf = allocator.allocateU32(this.dim);
-    buf[0] = 1;
-    for (let i = 1; i < this.dim; i++) {
-      buf[i] = this.shape[this.dim - i] * buf[i - 1];
-    }
-    return buf.reverse();
+  get shape(): Uint32Array {
+    return wasm.__getUint32Array(this.shapePtr);
   }
 
-  private getRestrictFromShape() {
-    const buf = allocator.allocateU32(this.dim);
-    buf[0] = this.shape[this.dim - 1];
-    for (let i = 1; i < this.dim; i++) {
-      buf[i] = this.shape[this.dim - 1 - i] * buf[i - 1];
-    }
-    return buf.reverse();
+  get projection(): Uint32Array {
+    return wasm.__getUint32Array(this.projectionPtr);
   }
 
-  absoluteIndex(index: ArrayLike<number>) {
+  get restrict(): Uint32Array {
+    return wasm.__getUint32Array(this.restrictPtr);
+  }
+
+  get buffer(): Uint32Array {
+    return wasm.__getUint32Array(this.bufferPtr);
+  }
+
+  private moveToBuffer(values: ArrayLike<number>) {
+    for (let i = 0; i < this.dim; i++) this.buffer[i] = values[i];
+  }
+
+  linearIndex(index: ArrayLike<number>) {
     for (let i = 0; i < this.dim; i++) {
       if (!between(index[i], 0, this.shape[i])) {
         throw new IndexError(`The index [${index[i]}] is out of bounds of dimension [${this.shape[i]}]`);
       }
     }
 
-    return this.absoluteIndexUnsafe(index);
+    this.moveToBuffer(index);
+    return wasm.calcLinearIndex(this.dim, this.bufferPtr, this.projectionPtr);
   }
 
-  absoluteIndexUnsafe(index: ArrayLike<number>) {
-    let result = 0;
-    for (let i = 0; i < this.dim; i++) result += index[i] * this.projection[i];
-    return result;
-  }
+  reverseLinearIndex(index: number) {
+    if (!between(index, 0, this.size)) {
+      throw new IndexError(`The index [${index}] is out of bounds of [${this.shape}]`);
+    }
 
-  reveseAbsoluteIndexUnsafe(t: number) {
-    for (let i = 0; i < this.dim; i++) this.buffer[i] = (t % this.restrict[i]) / this.projection[i];
+    wasm.calcLinearReverseIndex(this.dim, index, this.projectionPtr, this.restrictPtr, this.bufferPtr);
     return this.buffer;
   }
 
@@ -105,7 +85,11 @@ export class Shape {
     return this.buffer;
   }
 
-  binary(otherShape: Shape): Shape {
+  binaryOperation(otherShape: Shape): Shape {
+    if (this.dim !== otherShape.dim) {
+      throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape}, the dim doesn't match. `);
+    }
+
     const resultShape = new Uint32Array(this.dim);
 
     for (let i = 0; i < this.dim; i++) {
@@ -115,16 +99,12 @@ export class Shape {
         resultShape[i] = otherShape.shape[i];
       } else if (otherShape.shape[i] === 1) {
         resultShape[i] = this.shape[i];
+      } else {
+        throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape} at dim ${i}. `);
       }
     }
 
     return new Shape(resultShape);
-  }
-
-  get size() {
-    let size = 1;
-    for (let i = 0; i < this.dim; i++) size *= this.shape[i];
-    return size;
   }
 
   /**
@@ -148,28 +128,6 @@ export class Shape {
     return newShape;
   }
 
-  binaryWithCheck(otherShape: Shape): void {
-    if (this.dim !== otherShape.dim) {
-      throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape}. `);
-    }
-
-    for (let i = 0; i < this.dim; i++) {
-      if (this.shape[i] === otherShape.shape[i]) {
-        continue;
-      }
-
-      if (this.shape[i] === 1) {
-        continue;
-      }
-
-      if (otherShape.shape[i] === 1) {
-        continue;
-      }
-
-      throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape}. `);
-    }
-  }
-
   isEqual(other: Shape) {
     if (this.dim !== other.dim) {
       return false;
@@ -186,6 +144,7 @@ export class Shape {
 
   static async checkIfShapeUnify(anyArray: any, shape: ArrayLike<number>) {
     const task = checkIfShapeUnifyGenerator(anyArray, shape);
+
     for await (let status of task) {
       if (status === false) {
         return false;
@@ -195,20 +154,22 @@ export class Shape {
     return true;
   }
 
-  static getShapeFromAnyArray(anyArray: any): Uint32Array {
+  static async getShapeFromAnyArray(anyArray: any): Promise<Uint32Array> {
     if (isScalar(anyArray)) {
-      throw new IndexError("The given array is a scalar");
+      return allocator.allocateU32(0);
     }
 
     const s = [];
     for (let r = anyArray; !isScalar(r); r = r[0]) s.push(r.length);
+
+    await Shape.checkIfShapeUnify(anyArray, s);
 
     const buffer = allocator.allocateU32(s.length);
     for (let i = 0; i < s.length; i++) buffer[i] = s[i];
     return buffer;
   }
 
-  toString(): string {
+  toString() {
     return `(${Array.from(this.shape).join(" x ")}) [${this.size}]`;
   }
 }

@@ -7,7 +7,8 @@ export function shape(shapeArr: ArrayLike<number>) {
 
 
 export function ones(dim: number): Shape {
-  return shape(new Array<number>(dim).fill(1));
+  const buffer = new Array<number>(dim).fill(1);
+  return shape(buffer);
 }
 
 

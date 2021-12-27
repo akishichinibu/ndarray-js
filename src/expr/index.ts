@@ -1,21 +1,18 @@
-import { NdArray } from "../..";
-import { array } from "../ndarray";
-import { CouldBePromise } from "../type";
-import { toCharacterStream, toReversePolish, toTokenStream } from "./compile";
-import { VariableType, VariableTable, TokenType } from "./compile/utils";
+import { nd } from "src/ndarray";
+import { TokenType } from "./compile/token";
+import { VariableType, VariableTable } from "./compile/utils";
+import { parser } from "./expr";
 
 
-const t = array([[1, 2, 3], [4, 5, 6],]);
+const t = nd.array([[1, 2, 3], [4, 5, 6],]);
 
 
-const parser = (strings: TemplateStringsArray, ...keys: Array<VariableType>) => {
-  return toReversePolish(
-    toTokenStream(
-      toCharacterStream(
-        strings, keys,
-      )
-    )
-  )
+async function ndexpr(strings: TemplateStringsArray, ...keys: Array<VariableType>) {
+  const task = parser(strings, ...keys);
+  const tokens = Array.from(task);
+  return async (values: VariableTable) => {
+
+  }
 }
 
 
@@ -57,13 +54,5 @@ export async function ndeval(strings: TemplateStringsArray, ...keys: Array<Varia
 
   return stack.pop()!;
 }
-
-
-async function ndexpr<R extends CouldBePromise<VariableType>>(strings: TemplateStringsArray, ...keys: Array<R>) {
-  return async (values: VariableTable) => {
-    return await t;
-  }
-}
-
 
 // const expr = await ndeval`((${t} + pi) * e - ${t})`;

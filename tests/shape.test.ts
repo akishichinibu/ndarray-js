@@ -18,7 +18,7 @@ test('a array which all the dimensions are set to be one', () => {
 });
 
 
-test("get shape from an array", () => {
+test("get shape from an array", async () => {
   const dummy = [
     [1, 2, 3],
     [4, 5, 6],
@@ -28,12 +28,17 @@ test("get shape from an array", () => {
   expect(isScalar(dummy[0])).to.be.false;
   expect(isScalar(dummy[0][0])).to.be.true;
 
-  const s = Shape.getShapeFromAnyArray(dummy);
+  const s = await Shape.getShapeFromAnyArray(dummy);
   expect(Array.from(s)).to.have.ordered.members([2, 3]);
+
+  const ss = shape(s);
+  console.log(ss.shape);
+  console.log(ss.projection);
+  console.log(ss.restrict);
 });
 
 
-test("get shape from an array which is not unify", () => {
+test("get shape from an array which is not unify", async () => {
   const dummy = [
     [
       [1, 2, 3],
@@ -42,7 +47,7 @@ test("get shape from an array which is not unify", () => {
     []
   ];
 
-  const s = Shape.getShapeFromAnyArray(dummy);
+  const s = await Shape.getShapeFromAnyArray(dummy);
   expect(Array.from(s)).to.have.ordered.members([2, 2, 3]);
 });
 

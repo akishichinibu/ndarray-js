@@ -1,6 +1,21 @@
-import { CouldBePromise } from "src/type";
-import { ExprParseError } from "./exception";
-import { VariableType, CharacterStream, TokenStream, TokenType, isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, readDigitalLiteral, isCharacterToken, readCharacterString, isOperatorToken, readOperator } from "./utils";
+
+import { ExprParseError } from "src/exception";
+import { functions } from "./op";
+import { readDigitalLiteral, readCharacterString, readOperator } from "./process";
+import { CharacterStream, VariableType, isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, isCharacterToken, isOperatorToken } from "./utils";
+
+
+export enum TokenType {
+  Literal=1,
+  Operator=2,
+  LeftParenthesis=3,
+  RightParenthesis=4,
+  Function=5,
+  Variable=6,
+}
+
+
+export type TokenStream<R> = Generator<[TokenType, R]>;
 
 
 export type TokenBuffer<R> = Array<[number, R, number]>;
@@ -63,13 +78,16 @@ function* toTokenStream(stream: CharacterStream<VariableType>): TokenStream<Vari
       const [t, c, cc] = r.value;
 
       if (isLeftParenthesisToken(cc)) {
-        yield [TokenType.Function, token];
-        yield [TokenType.LeftParenthesis, c];
+        if (functions.has(token)) {
+          yield [TokenType.Function, token];
+        } else {
+          throw new ExprParseError(t, `Unknown function name ${token}`);
+        }
       } else {
         yield [TokenType.Variable, token];
-        buffer.push([t, c, cc]);
       }
 
+      buffer.push([t, c, cc]);
       continue;
     }
 

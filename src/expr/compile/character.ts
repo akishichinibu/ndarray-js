@@ -1,4 +1,3 @@
-import { CouldBePromise } from "src/type";
 import { VariableType, CharacterStream } from "./utils";
 
 

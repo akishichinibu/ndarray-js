@@ -12,7 +12,9 @@ type FloatType = `${FlotTypePrefix}${FloatBitLength}`;
 
 export type TypedScalerType = IntegerType | UnsignedIntegerType | FloatType;
 
-export type ScalerType = TypedScalerType | "number" | "boolean";
+export type ScalerType = TypedScalerType | "boolean";
+
+export type Ptr = number;
 
 
 export function getTypeConstructor(dtype: ScalerType) {
@@ -25,7 +27,7 @@ export function getTypeConstructor(dtype: ScalerType) {
     case "u32": return Uint32Array;
     case "f32": return Float32Array;
     case "f64": return Float64Array;
-    default: return Array;
+    case "boolean": return Uint8Array;
   }
 }
 

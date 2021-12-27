@@ -1,6 +1,5 @@
 import { ndeval } from "src/expr";
 import { toCharacterStream, toTokenStream, toReversePolish } from "src/expr/compile";
-import { array } from "src/ndarray";
 
 
 test('charter stream', () => {
@@ -17,8 +16,20 @@ test('charter stream', () => {
 });
 
 
-test('a array whose elements are all 1', async () => {
-  const t = array([[1, 2, 3], [4, 5, 6],]);
+test('parse an expression with a functon', () => {
+  const exprs = `sin((1 + 2) * 3) * cos(pi) - exp(7 / 3 + 5)`;
+
+  for (let [type, token] of toTokenStream(toCharacterStream([exprs, ] as unknown as TemplateStringsArray, []))) {
+    console.log(type, token);
+  }
+});
+
+
+test('parse a simple expression', async () => {
   const expr = await ndeval`(1 + 3) * 7 - 5 / 33`;
-  console.log(expr);
+});
+
+
+test('parse an expression with a functon', async () => {
+  const expr = await ndeval`(1 + 3) * sin(7) - 5 / 33`;
 });
