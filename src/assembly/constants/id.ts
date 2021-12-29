@@ -9,7 +9,3 @@ export const Uint32ArrayId = idof<Uint32Array>();
 
 export const Float32ArrayId = idof<Float32Array>();
 export const Float64ArrayId = idof<Float64Array>();
-
-
-export const SinFloat64Id = 1;
-export const CosFloat64Id = 2;

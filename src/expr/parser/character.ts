@@ -1,4 +1,4 @@
-import { VariableType, CharacterStream } from "./utils";
+import { VariableType, CharacterStream } from "src/expr/utils";
 
 
 function* toCharacterStream(strings: TemplateStringsArray, keys: Array<VariableType>): CharacterStream<VariableType> {

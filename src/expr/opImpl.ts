@@ -1,6 +1,6 @@
 import { NdArray, Shape } from "index";
 import { isNdArray, isScalar } from "src/utils";
-import { VariableType } from "./compile/utils";
+import { VariableType } from "./utils";
 
 
 type BinaryOperator = (op1: VariableType, op2: VariableType) => VariableType;

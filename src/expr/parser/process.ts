@@ -1,7 +1,8 @@
 
 import { ExprParseError } from "src/exception";
 import { TokenBuffer } from "./token";
-import { CharacterStream, isCharacterToken, isDigitalToken, isLeftParenthesisToken, isOperatorToken, isRightParenthesisToken, isSpace, VariableType } from "./utils";
+import { CharacterStream, VariableType } from "../utils";
+import { isDigitalToken, isSpace, isOperatorToken, isRightParenthesisToken, isCharacterToken, isLeftParenthesisToken } from "./checker";
 
 
 export function readDigitalLiteral(stream: CharacterStream<VariableType>, first: number, buffer: TokenBuffer<VariableType>) {

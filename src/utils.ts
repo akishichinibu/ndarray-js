@@ -1,5 +1,6 @@
 import { NdArray } from "./container";
 
+
 export function between(x: number, l: number, r: number) {
   return l <= x && x < r;
 }

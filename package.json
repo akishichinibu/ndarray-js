@@ -4,11 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "webpack -c webpack.config.ts",
-    "test": "jest --coverage",
+    "base": "dotenv-run-script .env --",
     "ts-node": "ts-node -r tsconfig-paths/register",
-    "asbuild:untouched": "asc assembly/index.ts --exportRuntime --target debug",
-    "asbuild:optimized": "asc assembly/index.ts --exportRuntime --target release",
+    "jest": "jest --coverage",
+    "build": "webpack -c webpack.config.ts",
+    "test": "npm run base -- jest",
+    "preasc": "npm run ts-node ./bin/generate.ts",
+    "asc": "asc ./src/assembly/index.ts -d ./src/wasmModule.d.ts --exportRuntime",
+    "asbuild:untouched": "npm run asc -- --target debug",
+    "asbuild:optimized": "npm run asc -- --target release",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized"
   },
   "author": "",
@@ -29,6 +33,8 @@
     "@assemblyscript/loader": "^0.19.22",
     "as-wasi": "^0.4.6",
     "assemblyscript": "^0.19.22",
-    "chai": "^4.3.4"
+    "chai": "^4.3.4",
+    "dotenv-run-script": "^0.2.0",
+    "wasi": "^0.0.6"
   }
 }

@@ -1,10 +1,11 @@
 import { IndexError, RunningTimeError } from "./exception";
 import { Shape, NdArray } from "./container";
-import { getTypeConstructor, NumericArray, ScalerType } from "./type";
-import { shape } from "./shape";
+import { ScalerType } from "./type";
+import sp from "./shape";
 import { fromAnyArrayGenerator } from "./container/utils";
-import allocator from "./allocator";
-import wasm from "src/wasm";
+
+import c from "src/constant";
+import wasm, { dtypeIdMap } from "src/wasm";
 
 
 type GenericShape = ArrayLike<number> | Shape;
@@ -24,7 +25,7 @@ async function array(dummy: any, dtype: ScalerType = 'f64') {
   }
 
   const shape = new Shape(shapeArray);
-  const array = new NdArray({ shape });
+  const array = new NdArray({ shape, dtype });
 
   const tasks = fromAnyArrayGenerator(dummy, array.buffer);
   for await (let _ of tasks) { }
@@ -34,7 +35,7 @@ async function array(dummy: any, dtype: ScalerType = 'f64') {
 
 
 function fromShape(shape_: GenericShape, dtype: ScalerType = 'f64') {
-  const s = shape_ instanceof Shape ? shape_ : shape(shape_);
+  const s = shape_ instanceof Shape ? shape_ : sp.shape(shape_);
   return new NdArray({ shape: s, dtype });
 }
 
@@ -62,8 +63,11 @@ type UnaryOperator = (operand: NdArray) => NdArray;
 function unaryOperateToFloat64(operand: NdArray, operator: string): NdArray {
   const size = operand.size;
   const result = new NdArray({ shape: operand.shapeObj, dtype: "f64" });
-  result.fillBy(operand);
-  wasm.unaryOperator_f64(wasm.SinFloat64Id, size, result.bufferPtr, result.bufferPtr);
+
+  const operandType = dtypeIdMap.get(operand.dtype)!;
+  const resultType = dtypeIdMap.get(result.dtype)!;
+
+  wasm.unaryOperator(1, size, operand.ptr, operandType, result.ptr, resultType);
   return result;
 }
 

@@ -1,21 +1,19 @@
 import { NdArray, Shape } from "index";
 import { ExprEvalError } from "src/exception";
-import { isScalar } from "src/utils";
-import { functions } from "./compile/op";
-import { TokenType } from "./compile/token";
-import { VariableType } from "./compile/utils";
+import c from "src/constant";
+import { VariableType } from "./utils";
 import { parser } from "./expr";
 
 
 type ShapeLiteral = ArrayLike<number>;
 
 
-function evalShape(sequence: Iterable<[TokenType, VariableType]>) {
+function evalShape(sequence: Iterable<[c.TokenType, VariableType]>) {
   const stack: Array<ShapeLiteral> = [];
 
   for (let [type, token] of sequence) {
     switch (type) {
-      case TokenType.Operator: {
+      case c.TokenType.Operator: {
         const op2 = stack.pop()!;
         const op1 = stack.pop()!;
 
@@ -27,8 +25,8 @@ function evalShape(sequence: Iterable<[TokenType, VariableType]>) {
           // Binary check
         }
       }
-      case TokenType.Function: {
-        const opNums = functions.get(token as string)!;
+      case c.TokenType.Function: {
+        const opNums = c.functions.get(token as string)!;
 
         if (stack.length < opNums) {
           throw EvalError(`The function ${token} required ${opNums} oprands but got ${stack.length}`);
@@ -55,11 +53,4 @@ function evalShape(sequence: Iterable<[TokenType, VariableType]>) {
 
   const result = stack.pop()!;
   return new Shape(result);
-}
-
-
-export async function ndeval(strings: TemplateStringsArray, ...keys: Array<VariableType>) {
-  const sequence = Array.from(parser(strings, ...keys));
-  const shape = evalShape(sequence);
-  return stack.pop()!;
 }

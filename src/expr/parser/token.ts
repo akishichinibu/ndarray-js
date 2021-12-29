@@ -1,25 +1,13 @@
 
 import { ExprParseError } from "src/exception";
-import { functions } from "./op";
+import { functions, TokenType } from "src/expr/constant";
 import { readDigitalLiteral, readCharacterString, readOperator } from "./process";
-import { CharacterStream, VariableType, isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, isCharacterToken, isOperatorToken } from "./utils";
-
-
-export enum TokenType {
-  Literal=1,
-  Operator=2,
-  LeftParenthesis=3,
-  RightParenthesis=4,
-  Function=5,
-  Variable=6,
-}
-
+import { CharacterStream, VariableType } from "../utils";
+import { isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, isCharacterToken, isOperatorToken } from "./checker";
 
 export type TokenStream<R> = Generator<[TokenType, R]>;
 
-
 export type TokenBuffer<R> = Array<[number, R, number]>;
-
 
 function* toTokenStream(stream: CharacterStream<VariableType>): TokenStream<VariableType> {
   const buffer: TokenBuffer<VariableType> = [];
@@ -68,14 +56,13 @@ function* toTokenStream(stream: CharacterStream<VariableType>): TokenStream<Vari
 
     if (isCharacterToken(code)) {
       const token = readCharacterString(stream, code, buffer);
-      const r = stream.next();
 
-      if (r.done) {
+      if (buffer.length === 0) {
         yield [TokenType.Variable, token];
         continue;
       }
 
-      const [t, c, cc] = r.value;
+      const [t, c, cc] = buffer.pop()!;
 
       if (isLeftParenthesisToken(cc)) {
         if (functions.has(token)) {
