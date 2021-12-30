@@ -1,14 +1,14 @@
-import c from "src/constant";
-import { VariableType } from "../utils";
-import { TokenStream } from "./token";
-
+import c from 'src/constant';
+import { VariableType } from '../utils';
+import { TokenStream } from './token';
 
 function* toReversePolish(stream: TokenStream<VariableType>): Generator<[c.TokenType, VariableType]> {
   const stack = new Array<[c.TokenType, string]>();
 
   for (let [type, token] of stream) {
     switch (type) {
-      case c.TokenType.Literal: case c.TokenType.Variable: {
+      case c.TokenType.Literal:
+      case c.TokenType.Variable: {
         yield [type, token];
         break;
       }
@@ -63,6 +63,5 @@ function* toReversePolish(stream: TokenStream<VariableType>): Generator<[c.Token
     yield stack.pop()!;
   }
 }
-
 
 export default toReversePolish;

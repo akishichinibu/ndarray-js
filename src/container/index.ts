@@ -1,2 +1,2 @@
-export { NdArray } from "./NdArray";
-export { Shape } from "./Shape";
+export { NdArray } from './NdArray';
+export { Shape } from './Shape';

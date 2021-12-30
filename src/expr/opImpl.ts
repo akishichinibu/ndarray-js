@@ -1,4 +1,4 @@
-import { NdArray, Shape } from "index";
+import { NdArray, Shape } from "src/container";
 import { isNdArray, isScalar } from "src/utils";
 import { VariableType } from "./utils";
 
@@ -20,29 +20,4 @@ function binaryShape(op1: VariableType, op2: VariableType) {
   }
 
   return (op1 as NdArray).shapeObj.binaryOperation((op2 as NdArray).shapeObj);
-}
-
-
-namespace op {
-
-  export const add: BinaryOperator = (op1, op2) => {
-    if (isScalar(op1) && isScalar(op2)) {
-      return op1 + op2;
-    }
-
-    const flag1 = isNdArray(op1);
-    const flag2 = isNdArray(op2);
-
-    if (flag1 && flag2) {
-
-    }
-
-    if (flag1) {
-      
-    }
-
-    if (flag2) {
-
-    }
-
 }

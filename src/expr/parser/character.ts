@@ -1,5 +1,4 @@
-import { VariableType, CharacterStream } from "src/expr/utils";
-
+import { VariableType, CharacterStream } from 'src/expr/utils';
 
 function* toCharacterStream(strings: TemplateStringsArray, keys: Array<VariableType>): CharacterStream<VariableType> {
   let t = 0;
@@ -20,6 +19,5 @@ function* toCharacterStream(strings: TemplateStringsArray, keys: Array<VariableT
     }
   }
 }
-
 
 export default toCharacterStream;

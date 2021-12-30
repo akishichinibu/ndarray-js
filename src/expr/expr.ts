@@ -1,14 +1,7 @@
-import { CouldBePromise } from "src/type";
-import { toReversePolish, toTokenStream, toCharacterStream } from "./compile";
-import { VariableType, VariableTable } from "./utils";
-
+import { CouldBePromise } from 'src/type';
+import { toReversePolish, toTokenStream, toCharacterStream } from './compile';
+import { VariableType, VariableTable } from './utils';
 
 export const parser = (strings: TemplateStringsArray, ...keys: Array<VariableType>) => {
-  return toReversePolish(
-    toTokenStream(
-      toCharacterStream(
-        strings, keys,
-      )
-    )
-  )
-}
+  return toReversePolish(toTokenStream(toCharacterStream(strings, keys)));
+};

@@ -1,11 +1,13 @@
-import allocator from "src/allocator";
-import { IndexError, RunningTimeError } from "src/exception";
-import { Ptr, ScalerType } from "src/type";
-import constants from "src/constants";
-import { Shape } from "./Shape";
-import wasm from "src/wasm";
-import { PtrBase } from "./PtrBase";
+import allocator from 'src/allocator';
+import { IndexError, RunningTimeError } from 'src/exception';
+import { getTypeConstructor, Ptr, ScalerType } from 'src/type';
+import constants from 'src/constants';
+import wasm, { dtypeIdMap } from 'src/wasm';
 
+import { PtrBase } from './PtrBase';
+import { Shape } from './Shape';
+import { NumericVariableType, VariableType } from 'src/expr/utils';
+import { isScalar } from 'src/utils';
 
 interface NdArrayConstructProps {
   shape: Shape;
@@ -13,9 +15,7 @@ interface NdArrayConstructProps {
   bufferPtr?: Ptr;
 }
 
-
-abstract class BaseNdArray extends PtrBase {
-
+abstract class BaseNdArrayPtr extends PtrBase {
   readonly dtype: ScalerType;
   readonly shapeObj: Shape;
   readonly ptr: Ptr;
@@ -23,17 +23,18 @@ abstract class BaseNdArray extends PtrBase {
   constructor(props: NdArrayConstructProps) {
     super();
     this.shapeObj = props.shape;
-    this.dtype = props.dtype ?? "f64";
+    this.dtype = props.dtype ?? 'f64';
 
     if (!constants.dtypeWasmName.has(this.dtype)) {
       throw new RunningTimeError(`Invalid data type ${this.dtype}`);
     }
 
-    this.ptr = props.bufferPtr ?? allocator.allocateBufferWasm(this.size * 8);
+    this.ptr = props.bufferPtr ?? allocator.allocateWasm(this.size * getTypeConstructor(this.dtype).BYTES_PER_ELEMENT);
   }
 
   get buffer() {
-    return new Float64Array(wasm.memory?.buffer!, this.ptr, this.size);
+    const C = getTypeConstructor(this.dtype);
+    return new C(wasm.memory?.buffer!, this.ptr, this.size);
   }
 
   get dim() {
@@ -48,45 +49,97 @@ abstract class BaseNdArray extends PtrBase {
     return this.shapeObj.shape;
   }
 
+  get dtypeId() {
+    return dtypeIdMap.get(this.dtype)!;
+  }
 }
 
+abstract class BaseNdArray extends BaseNdArrayPtr {
+  at(...index: Array<number>): number {
+    const [t] = this.shapeObj.linearIndex([index]);
+    return this.buffer[t];
+  }
 
-export class NdArray extends BaseNdArray {
+  fill(value: number | BaseNdArray) {
+    if (value instanceof BaseNdArray) {
+      if (this.size !== value.size) {
+        throw new IndexError(`The size of given value ${value.size} is not equal to size ${this.size}`);
+      }
 
-  fill(value: number): NdArray {
-    this.buffer.fill(value);
+      for (let i = 0; i < this.size; i++) this.buffer[i] = value.buffer[i];
+    } else {
+      this.buffer.fill(value);
+    }
+
     return this;
   }
 
-  at(...index: Array<number>): number {
-    return this.buffer[this.shapeObj.linearIndex(index)];
-  }
+  async add(value: NumericVariableType) {
+    if (isScalar(value)) {
+      const result = new NdArray({
+        shape: this.shapeObj
+      });
 
+      wasm.binaryScalar2Operator(
+        wasm.Operator.Binary.Add,
+        this.size,
+
+        this.ptr,
+        this.dtypeId,
+
+        value,
+
+        result.ptr,
+        result.dtypeId
+      );
+      return result;
+    } else {
+      const v = await value;
+      const resultShape = this.shapeObj.binaryOperation(v.shapeObj);
+
+      const result = new NdArray({
+        shape: resultShape
+      });
+
+      wasm.binaryOperator(
+        wasm.Operator.Binary.Add,
+        this.shapeObj.ptr,
+        this.ptr,
+        this.dtypeId,
+
+        v.shapeObj.ptr,
+        v.ptr,
+        v.dtypeId,
+
+        this.dim,
+
+        result.shapeObj.ptr,
+        result.ptr,
+        result.dtypeId
+      );
+
+      return result;
+    }
+  }
+}
+
+export class NdArray extends BaseNdArray {
   reshape(newShapeArray: Array<number>): NdArray {
     const newShape = this.shapeObj.reshape(newShapeArray);
     return new NdArray({
       shape: newShape,
       dtype: this.dtype,
-      bufferPtr: this.ptr,
+      bufferPtr: this.ptr
     });
   }
 
   flat(): NdArray {
-    const newShape = this.shapeObj.reshape([this.shapeObj.size,]);
+    const newShape = this.shapeObj.reshape([this.shapeObj.size]);
     return new NdArray({
       shape: newShape,
       dtype: this.dtype,
-      bufferPtr: this.ptr,
+      bufferPtr: this.ptr
     });
-  }
-
-  fillBy(other: NdArray) {
-    if (this.size !== other.size) {
-      throw new Error("");
-    }
-
-    for (let i = 0; i < this.size; i++) this.buffer[i] = other.buffer[i];
-    return this;
   }
 
   private prettyString(curSlice: Array<number>, maxLength: number | null = null): string {
@@ -96,7 +149,7 @@ export class NdArray extends BaseNdArray {
     const level: number = curSlice.length;
     const withoutPaddingHead = level === 0 || curSlice[level - 1] === 0;
 
-    const buf = []
+    const buf = [];
     const l = this.shapeObj.at(level);
 
     if (level === this.dim - 1) {
@@ -105,20 +158,20 @@ export class NdArray extends BaseNdArray {
         const present = this.dtype[0] === 'f' ? element.toFixed(maxDigital) : `${element}`;
         buf.push(present);
         if (i > maxLength) {
-          buf.push(" ...");
+          buf.push(' ...');
           break;
         }
       }
-      return `${withoutPaddingHead ? "" : " ".repeat(level)}[${buf.join(", ")}]`;
+      return `${withoutPaddingHead ? '' : ' '.repeat(level)}[${buf.join(', ')}]`;
     } else {
       for (let i = 0; i < l; i++) {
         buf.push(this.prettyString([...curSlice, i]));
         if (i > maxLength) {
-          buf.push(" ...");
+          buf.push(' ...');
           break;
         }
       }
-      return `${withoutPaddingHead ? "" : ' '.repeat(level)}[${buf.join(", \n")}]`;
+      return `${withoutPaddingHead ? '' : ' '.repeat(level)}[${buf.join(', \n')}]`;
     }
   }
 

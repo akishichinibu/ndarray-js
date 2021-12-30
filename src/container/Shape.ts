@@ -1,19 +1,17 @@
-import allocator from "src/allocator";
-import wasm from "src/wasm";
+import allocator from 'src/allocator';
+import wasm from 'src/wasm';
 
-import sp from "src/shape";
-import { Ptr } from "src/type";
-import { IndexError, RunningTimeError } from "src/exception";
-import { between, isScalar } from "src/utils";
+import sp from 'src/shape';
+import { Ptr } from 'src/type';
+import { IndexError, RunningTimeError } from 'src/exception';
+import { between, isScalar } from 'src/utils';
 
-import { checkIfShapeUnifyGenerator } from "./utils";
-import { PtrBase } from "./PtrBase";
+import { checkIfShapeUnifyGenerator } from './utils';
+import { PtrBase } from './PtrBase';
 
-
-abstract class BaseShape extends PtrBase {
-
+abstract class BaseShapePtr extends PtrBase {
   readonly dim: number;
-  protected readonly ptr: Ptr;
+  readonly ptr: Ptr;
 
   constructor(shapeArray: ArrayLike<number>) {
     super();
@@ -23,10 +21,10 @@ abstract class BaseShape extends PtrBase {
       throw new IndexError("The dimension of the shape cann't not be 0. ");
     }
 
-    this.ptr = allocator.allocateBufferWasm((4 * this.dim + 1) * 4);
+    this.ptr = allocator.allocateWasm((4 * this.dim + 1) * Uint32Array.BYTES_PER_ELEMENT);
     this.shape.set(shapeArray);
 
-    wasm.initShape(this.dim, this.ptr);
+    wasm.shape.init(this.dim, this.ptr);
   }
 
   private get ptrBuffer() {
@@ -34,7 +32,7 @@ abstract class BaseShape extends PtrBase {
   }
 
   private offsetView(d: number) {
-    const t = d * this.dim * 4;
+    const t = d * this.dim * Uint32Array.BYTES_PER_ELEMENT;
     return new Uint32Array(wasm.memory?.buffer!, this.ptr + t, this.dim);
   }
 
@@ -57,12 +55,9 @@ abstract class BaseShape extends PtrBase {
   get size() {
     return this.ptrBuffer[4 * this.dim];
   }
-
 }
 
-
-export class Shape extends BaseShape {
-
+class BaseShape extends BaseShapePtr {
   static async checkIfShapeUnify(anyArray: any, shape: ArrayLike<number>) {
     const task = checkIfShapeUnifyGenerator(anyArray, shape);
 
@@ -83,7 +78,7 @@ export class Shape extends BaseShape {
     const s = [];
     for (let r = anyArray; !isScalar(r); r = r[0]) s.push(r.length);
 
-    await Shape.checkIfShapeUnify(anyArray, s);
+    await BaseShape.checkIfShapeUnify(anyArray, s);
 
     const buffer = allocator.allocateU32(s.length);
     for (let i = 0; i < s.length; i++) buffer[i] = s[i];
@@ -97,7 +92,80 @@ export class Shape extends BaseShape {
     return this.shape[pos];
   }
 
-  reshape(newShapeArr: ArrayLike<number>): Shape {
+  linearIndex(indexs: ArrayLike<ArrayLike<number>>) {
+    const [inputPtr, input] = allocator.allocateWasmU32(indexs.length * this.dim);
+
+    for (let u = 0; u < indexs.length; u++) {
+      const index = indexs[u];
+
+      if (index.length !== this.dim) {
+        throw new IndexError(`The length of indexs [${u}] should be equal to ${this.dim}`);
+      }
+
+      for (let i = 0; i < this.dim; i++) {
+        if (!between(index[i], 0, this.shape[i])) {
+          throw new IndexError(`The index [${index[i]}] is out of bounds of dimension [${this.shape[i]}]`);
+        }
+
+        input[u * this.dim + i] = index[i];
+      }
+    }
+
+    const [outputPtr, output] = allocator.allocateWasmU32(indexs.length);
+
+    wasm.shape.calcLinearIndex(this.dim, this.ptr, inputPtr, outputPtr);
+    allocator.freeWasm(inputPtr);
+    return output;
+  }
+
+  // reverseLinearIndex(indexs: ArrayLike<number>) {
+  //   const [inputPtr, input] = allocator.allocateWasmU32(indexs.length);
+
+  //   for (let u = 0; u < indexs.length; u++) {
+  //     const index = indexs[u];
+  //     if (!between(index, 0, this.size)) {
+  //       throw new IndexError(`The index [${index}] is out of bounds of [${this.shape}]`);
+  //     }
+
+  //     input[u] = index;
+  //   }
+
+  //   const [outputPtr, output] = allocator.allocateWasmU32(indexs.length * this.dim);
+  //   wasm.shape.calcLinearReverseIndex(this.dim, this.ptr, inputPtr, outputPtr);
+
+  //   return output;
+  // }
+
+  boardcastUnsafe(index: Uint32Array) {
+    for (let i = 0; i < this.dim; i++) this.buffer[i] = this.buffer[i] === 1 ? 0 : index[i];
+    return this.buffer;
+  }
+
+  binaryOperation(otherShape: BaseShape) {
+    if (this.dim !== otherShape.dim) {
+      throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape}, the dim doesn't match. `);
+    }
+
+    const resultShape = new Uint32Array(this.dim);
+
+    for (let i = 0; i < this.dim; i++) {
+      if (this.shape[i] === otherShape.shape[i]) {
+        resultShape[i] = this.shape[i];
+      } else if (this.shape[i] === 1) {
+        resultShape[i] = otherShape.shape[i];
+      } else if (otherShape.shape[i] === 1) {
+        resultShape[i] = this.shape[i];
+      } else {
+        throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape} at dim ${i}. `);
+      }
+    }
+
+    return new Shape(resultShape);
+  }
+}
+
+export class Shape extends BaseShape {
+  reshape(newShapeArr: ArrayLike<number>) {
     const newShape = sp.shape(newShapeArr);
 
     if (newShape.size !== this.size) {
@@ -121,58 +189,7 @@ export class Shape extends BaseShape {
     return true;
   }
 
-  private moveToBuffer(values: ArrayLike<number>) {
-    for (let i = 0; i < this.dim; i++) this.buffer[i] = values[i];
-  }
-
-  linearIndex(index: ArrayLike<number>) {
-    for (let i = 0; i < this.dim; i++) {
-      if (!between(index[i], 0, this.shape[i])) {
-        throw new IndexError(`The index [${index[i]}] is out of bounds of dimension [${this.shape[i]}]`);
-      }
-    }
-
-    this.moveToBuffer(index);
-    return wasm.calcLinearIndex(this.dim, this.ptr);
-  }
-
-  reverseLinearIndex(index: number) {
-    if (!between(index, 0, this.size)) {
-      throw new IndexError(`The index [${index}] is out of bounds of [${this.shape}]`);
-    }
-
-    wasm.calcLinearReverseIndex(this.dim, index, this.ptr);
-    return this.buffer;
-  }
-
-  boardcastUnsafe(index: Uint32Array) {
-    for (let i = 0; i < this.dim; i++) this.buffer[i] = this.buffer[i] === 1 ? 0 : index[i];
-    return this.buffer;
-  }
-
-  binaryOperation(otherShape: Shape): Shape {
-    if (this.dim !== otherShape.dim) {
-      throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape}, the dim doesn't match. `);
-    }
-
-    const resultShape = new Uint32Array(this.dim);
-
-    for (let i = 0; i < this.dim; i++) {
-      if (this.shape[i] === otherShape.shape[i]) {
-        resultShape[i] = this.shape[i];
-      } else if (this.shape[i] === 1) {
-        resultShape[i] = otherShape.shape[i];
-      } else if (otherShape.shape[i] === 1) {
-        resultShape[i] = this.shape[i];
-      } else {
-        throw new RunningTimeError(`Can not execute binary operation between ${this.shape} and ${otherShape.shape} at dim ${i}. `);
-      }
-    }
-
-    return new Shape(resultShape);
-  }
-
   toString() {
-    return `(${Array.from(this.shape).join(" x ")}) [${this.size}]`;
+    return `(${Array.from(this.shape).join(' x ')}) [${this.size}]`;
   }
 }

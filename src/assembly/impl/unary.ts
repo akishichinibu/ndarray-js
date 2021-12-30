@@ -1,16 +1,25 @@
-import { getOperator, getTypedReader, getTypedWriter } from "./accessor";
-import { Console } from "as-wasi";
+import { getTypedReader, getTypedWriter } from './accessor';
+import { getUnaryOperator } from './operator';
 
+export function unaryOperator(
+  operatorId: u32,
+  size: u32,
 
-export function unaryOperator(operatorId: u32, size: u32, inputPtr: ArrayBuffer, inputDtype: u32, outputPtr: ArrayBuffer, outputDtype: u32): void {
+  inputPtr: ArrayBuffer,
+  inputDtype: i32,
+  outputPtr: ArrayBuffer,
+  outputDtype: i32
+): void {
   const inputView = new DataView(inputPtr);
   const outputView = new DataView(outputPtr);
 
   const inputAccessor = getTypedReader(inputDtype);
   const outputAccessor = getTypedWriter(outputDtype);
-  const operator = getOperator(operatorId);
+  const operator = getUnaryOperator(operatorId);
 
   for (let i: u32 = 0; i < size; i++) {
-    outputAccessor(outputView, i, operator(inputAccessor(inputView, i)));
+    const v = inputAccessor(inputView, i);
+    const rv = operator(v);
+    outputAccessor(outputView, i, rv);
   }
 }

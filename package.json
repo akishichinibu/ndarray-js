@@ -9,15 +9,18 @@
     "jest": "jest --coverage",
     "build": "webpack -c webpack.config.ts",
     "test": "npm run base -- jest",
-    "preasc": "npm run ts-node ./bin/generate.ts",
+    "prettier": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "asc": "asc ./src/assembly/index.ts -d ./src/wasmModule.d.ts --exportRuntime",
     "asbuild:untouched": "npm run asc -- --target debug",
-    "asbuild:optimized": "npm run asc -- --target release",
+    "asbuild:optimized": "npm run asc -- -O3z --converge --target release",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized"
   },
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
+    "chai": "^4.3.4",
+    "dotenv-run-script": "^0.2.0",
+    "prettier": "^2.4.1",
     "@types/chai": "^4.2.16",
     "@types/jest": "^26.0.22",
     "@types/node": "^14.14.37",
@@ -33,8 +36,6 @@
     "@assemblyscript/loader": "^0.19.22",
     "as-wasi": "^0.4.6",
     "assemblyscript": "^0.19.22",
-    "chai": "^4.3.4",
-    "dotenv-run-script": "^0.2.0",
     "wasi": "^0.0.6"
   }
 }

@@ -71,16 +71,21 @@ import { nd } from "src/ndarray";
 //   }
 // });
 
-test('inplace unary operation', () => {
-  const H = 30;
-  const W = 60;
+test('inplace unary operation', async () => {
+  const H = 6000;
+  const W = 6000;
 
-  const s1 = nd.random([H, W, H, W,]);
+  const s1 = nd.random([H, W, ], { maxValue: (1 << 31) });
+  // const s2 = nd.random([H, W, ]);
   // s1.show();
   console.log("@@@", s1.buffer);
+  // console.log("@@@", s2.buffer);
 
-  const s3 = nd.sin(s1);
+  const s3 = await nd.sin(s1);
   console.log(s3.buffer);
+
+  const s4 = await s3.add(5);
+  console.log(s4.buffer);
 
   // for (let i = 0; i < size; i++) expect(Math.sin(s1.buffer[i])).to.be.equal(s3.buffer[i]);
 

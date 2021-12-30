@@ -1,9 +1,8 @@
-
-import { ExprParseError } from "src/exception";
-import { functions, TokenType } from "src/expr/constant";
-import { readDigitalLiteral, readCharacterString, readOperator } from "./process";
-import { CharacterStream, VariableType } from "../utils";
-import { isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, isCharacterToken, isOperatorToken } from "./checker";
+import { ExprParseError } from 'src/exception';
+import { functions, TokenType } from 'src/expr/constant';
+import { readDigitalLiteral, readCharacterString, readOperator } from './process';
+import { CharacterStream, VariableType } from '../utils';
+import { isSpace, isLeftParenthesisToken, isRightParenthesisToken, isDigitalToken, isCharacterToken, isOperatorToken } from './checker';
 
 export type TokenStream<R> = Generator<[TokenType, R]>;
 
@@ -87,6 +86,5 @@ function* toTokenStream(stream: CharacterStream<VariableType>): TokenStream<Vari
     throw new ExprParseError(t, `Got an unexpected token ${c}`);
   }
 }
-
 
 export default toTokenStream;

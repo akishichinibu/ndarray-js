@@ -1,6 +1,5 @@
-import { between } from "src/assembly";
-import { operatorsPrecedence } from "src/expr/constant";
-
+import { between } from 'src/assembly';
+import { operatorsPrecedence } from 'src/expr/constant';
 
 export const isDigitalToken = (code: number) => between(code, 48, 57);
 

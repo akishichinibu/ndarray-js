@@ -1,13 +1,10 @@
-import { Ptr } from "src/type";
-import wasm from "src/wasm";
-
+import allocator from 'src/allocator';
+import { Ptr } from 'src/type';
 
 export abstract class PtrBase {
-
-  protected abstract readonly ptr: Ptr;
+  abstract readonly ptr: Ptr;
 
   free() {
-    wasm.__unpin(this.ptr);
+    allocator.freeWasm(this.ptr);
   }
-
 }

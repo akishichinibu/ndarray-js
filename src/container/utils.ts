@@ -1,7 +1,6 @@
-import { IndexError } from "src/exception";
-import { NumericArray } from "src/type";
-import { isScalar, isScalarArray } from "src/utils";
-
+import { IndexError } from 'src/exception';
+import { NumericArray } from 'src/type';
+import { isScalar, isScalarArray } from 'src/utils';
 
 export async function* checkIfShapeUnifyGenerator(anyArray: any, shape: Readonly<ArrayLike<number>>) {
   const dim = shape.length;
@@ -11,7 +10,7 @@ export async function* checkIfShapeUnifyGenerator(anyArray: any, shape: Readonly
     return;
   }
 
-  const queue: Array<[any, number]> = [[anyArray, 0], ];
+  const queue: Array<[any, number]> = [[anyArray, 0]];
 
   while (queue.length > 0) {
     const [a, dimth] = queue.shift()!;
@@ -20,7 +19,7 @@ export async function* checkIfShapeUnifyGenerator(anyArray: any, shape: Readonly
 
     if (n !== targetLength) {
       yield false;
-    };
+    }
 
     if (dimth === dim - 1) {
       yield isScalarArray(a);
@@ -35,9 +34,8 @@ export async function* checkIfShapeUnifyGenerator(anyArray: any, shape: Readonly
   yield true;
 }
 
-
 export async function* fromAnyArrayGenerator(anyArray: any, buffer: NumericArray) {
-  const queue: Array<[any, number]> = [[anyArray, 0],];
+  const queue: Array<[any, number]> = [[anyArray, 0]];
 
   while (queue.length > 0) {
     const [a, offset] = queue.shift()!;
@@ -61,13 +59,11 @@ export async function* fromAnyArrayGenerator(anyArray: any, buffer: NumericArray
   }
 }
 
-
 export function calcSize(dim: number, shape: ArrayLike<number>) {
   let size = 1;
   for (let i = 0; i < dim; i++) size *= shape[i];
   return size;
 }
-
 
 export function calcLinearIndex(dim: number, index: ArrayLike<number>, projection: Uint32Array) {
   let result = 0;
@@ -75,18 +71,22 @@ export function calcLinearIndex(dim: number, index: ArrayLike<number>, projectio
   return result;
 }
 
-
-export function calcLinearReverseIndex(dim: number, index: number, shape: ArrayLike<number>, projection: Uint32Array, restrict: Uint32Array, buffer: Uint32Array) {
+export function calcLinearReverseIndex(
+  dim: number,
+  index: number,
+  shape: ArrayLike<number>,
+  projection: Uint32Array,
+  restrict: Uint32Array,
+  buffer: Uint32Array
+) {
   for (let i = 0; i < dim; i++) buffer[i] = (index % restrict[i]) / projection[i];
 }
-
 
 export function calcProjection(dim: number, shape: ArrayLike<number>, buffer: Uint32Array) {
   buffer[0] = 1;
   for (let i = 1; i < dim; i++) buffer[i] = shape[dim - i] * buffer[i - 1];
   buffer.reverse();
 }
-
 
 export function calcRestrict(dim: number, shape: ArrayLike<number>, buffer: Uint32Array) {
   buffer[0] = shape[dim - 1];

@@ -1,12 +1,11 @@
-import { NdArray, Shape } from "index";
-import { ExprEvalError } from "src/exception";
-import c from "src/constant";
-import { VariableType } from "./utils";
-import { parser } from "./expr";
+import { NdArray, Shape } from 'src/container';
+import { ExprEvalError } from 'src/exception';
+import c from 'src/constants';
 
+import { VariableType } from './utils';
+import { parser } from './expr';
 
 type ShapeLiteral = ArrayLike<number>;
-
 
 function evalShape(sequence: Iterable<[c.TokenType, VariableType]>) {
   const stack: Array<ShapeLiteral> = [];

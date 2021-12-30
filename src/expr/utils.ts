@@ -1,7 +1,9 @@
-import { NdArray } from "src/container";
-import { CouldBePromise } from "src/type";
+import { NdArray } from 'src/container';
+import { CouldBePromise } from 'src/type';
 
-export type VariableType = number | string | CouldBePromise<NdArray>;
+export type NumericVariableType = number | CouldBePromise<NdArray>;
+
+export type VariableType = string | NumericVariableType;
 
 export type VariableTable = { [key: string]: VariableType };
 

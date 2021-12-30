@@ -1,12 +1,10 @@
-
-import { ExprParseError } from "src/exception";
-import { TokenBuffer } from "./token";
-import { CharacterStream, VariableType } from "../utils";
-import { isDigitalToken, isSpace, isOperatorToken, isRightParenthesisToken, isCharacterToken, isLeftParenthesisToken } from "./checker";
-
+import { ExprParseError } from 'src/exception';
+import { TokenBuffer } from './token';
+import { CharacterStream, VariableType } from '../utils';
+import { isDigitalToken, isSpace, isOperatorToken, isRightParenthesisToken, isCharacterToken, isLeftParenthesisToken } from './checker';
 
 export function readDigitalLiteral(stream: CharacterStream<VariableType>, first: number, buffer: TokenBuffer<VariableType>) {
-  const output = [first,];
+  const output = [first];
 
   while (true) {
     const r = stream.next();
@@ -30,9 +28,8 @@ export function readDigitalLiteral(stream: CharacterStream<VariableType>, first:
   return Number(String.fromCharCode(...output));
 }
 
-
 export function readOperator(stream: CharacterStream<VariableType>, first: number, buffer: TokenBuffer<VariableType>) {
-  const output = [first,];
+  const output = [first];
 
   while (true) {
     const r = stream.next();
@@ -54,9 +51,8 @@ export function readOperator(stream: CharacterStream<VariableType>, first: numbe
   return String.fromCharCode(...output);
 }
 
-
 export function readCharacterString(stream: CharacterStream<VariableType>, first: number, buffer: TokenBuffer<VariableType>) {
-  const output = [first, ];
+  const output = [first];
 
   while (true) {
     const r = stream.next();
