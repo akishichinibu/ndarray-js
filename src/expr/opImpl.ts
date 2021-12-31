@@ -1,10 +1,8 @@
-import { NdArray, Shape } from "src/container";
-import { isNdArray, isScalar } from "src/utils";
-import { VariableType } from "./utils";
-
+import { NdArray, Shape } from 'src/container';
+import { isNdArray, isScalar } from 'src/utils';
+import { VariableType } from './utils';
 
 type BinaryOperator = (op1: VariableType, op2: VariableType) => VariableType;
-
 
 function binaryShape(op1: VariableType, op2: VariableType) {
   if (isScalar(op1) && isScalar(op2)) {

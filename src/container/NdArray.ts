@@ -142,7 +142,7 @@ export class NdArray extends BaseNdArray {
     });
   }
 
-  private prettyString(curSlice: Array<number>, maxLength: number | null = null): string {
+  private arrayToString(curSlice: Array<number>, maxLength: number | null = null): string {
     maxLength = maxLength === null ? Math.round(100 ** (1.0 / this.dim)) : maxLength!;
     const maxDigital = 3;
 
@@ -165,7 +165,7 @@ export class NdArray extends BaseNdArray {
       return `${withoutPaddingHead ? '' : ' '.repeat(level)}[${buf.join(', ')}]`;
     } else {
       for (let i = 0; i < l; i++) {
-        buf.push(this.prettyString([...curSlice, i]));
+        buf.push(this.arrayToString([...curSlice, i]));
         if (i > maxLength) {
           buf.push(' ...');
           break;
@@ -176,7 +176,7 @@ export class NdArray extends BaseNdArray {
   }
 
   toString(): string {
-    return this.prettyString([]);
+    return this.arrayToString([]);
   }
 
   show(): void {

@@ -77,7 +77,7 @@ export function binaryOperator(
   const outputAccessor = getTypedWriter(outputDtype);
   const operator = getBinaryOperator(operatorId);
 
-  const batch: u32 = 16;
+  const batch: u32 = 64;
   const inputBuffer = new Uint32Array(batch);
   const reverseIndexBuffer = new Uint32Array(batch * dim);
   const reverseIndexBuffer1 = new Uint32Array(batch * dim);
@@ -86,27 +86,17 @@ export function binaryOperator(
   const indexBuffer1 = new Uint32Array(batch * 1);
   const indexBuffer2 = new Uint32Array(batch * 1);
 
-  const projection = shape.getProjection(dim, shapeData);
-  const restrict = shape.getRestrict(dim, shapeData);
-
-  const shape_ = shape.getShape(dim, shapeData);
-  const shape1 = shape.getShape(dim, shapeData1);
-  const shape2 = shape.getShape(dim, shapeData2);
-
-  const projection1 = shape.getProjection(dim, shapeData1);
-  const projection2 = shape.getProjection(dim, shapeData2);
-
   const size = shape.getSize(dim, shapeData)[0];
 
   for (let i: u32 = 0; i < size; i += batch) {
     for (let u: u32 = 0; u < batch; u++) inputBuffer[u] = i + u;
 
-    shape.calcLinearReverseIndex(dim, projection, restrict, inputBuffer, reverseIndexBuffer);
-    shape.binaryWith(dim, shape_, shape1, reverseIndexBuffer, reverseIndexBuffer1);
-    shape.binaryWith(dim, shape_, shape2, reverseIndexBuffer, reverseIndexBuffer2);
+    shape.calcLinearReverseIndex(dim, shapeData, batch, inputBuffer.buffer, reverseIndexBuffer.buffer);
+    shape.binaryWith(dim, shapeData, shapeData1, batch, reverseIndexBuffer.buffer, reverseIndexBuffer1.buffer);
+    shape.binaryWith(dim, shapeData, shapeData2, batch, reverseIndexBuffer.buffer, reverseIndexBuffer2.buffer);
 
-    shape.calcLinearIndex(dim, projection1, reverseIndexBuffer1, indexBuffer1);
-    shape.calcLinearIndex(dim, projection2, reverseIndexBuffer2, indexBuffer2);
+    shape.calcLinearIndex(dim, shapeData1, batch, reverseIndexBuffer1.buffer, indexBuffer1.buffer);
+    shape.calcLinearIndex(dim, shapeData2, batch, reverseIndexBuffer2.buffer, indexBuffer2.buffer);
 
     for (let u: u32 = 0; u < batch && i + u < size; u++) {
       const v1 = input1Accessor(input1View, indexBuffer1[u]);

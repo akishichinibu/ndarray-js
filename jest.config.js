@@ -8,6 +8,7 @@ module.exports = {
   //   },
   // },
   moduleNameMapper: {
+    "^src$": "<rootDir>/src",
     "^src/(.*)": "<rootDir>/src/$1",
   },
 };

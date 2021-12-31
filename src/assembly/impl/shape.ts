@@ -1,4 +1,4 @@
-import { Uint32Reader } from "./accessor";
+import { Console } from "as-wasi";
 
 export namespace shape {
 
@@ -76,43 +76,47 @@ export namespace shape {
 
   // @ts-ignore
   @inline
-  export function calcLinearIndex(dim: u32, projection: Uint32Array, input: Uint32Array, output: Uint32Array): void {
-    const n = input.length;
+  export function calcLinearIndex(dim: u32, shapeData: ArrayBuffer, size: u32, input_: ArrayBuffer, output_: ArrayBuffer): void {
+    const input = Uint32Array.wrap(input_, 0, dim * size);
+    const output = Uint32Array.wrap(output_, 0, size);
 
-    if (n % dim !== 0) {
-      throw new RangeError("The length of index should be divided by dim");
-    }
+    const projection = getProjection(dim, shapeData);
 
-    for (let u = 0, t = 0; u < n; u += dim, t++) {
-      let result: u32 = 0;
-      for (let i: u32 = 0; i < dim; i++) result += input[u + i] * projection[i];
-      output[t] = result;
+    output.fill(0);
+
+    for (let i: u32 = 0; i < dim; i++) {
+      for (let u: u32 = 0; u < size; u += 1) output[u] += input[i * size + u] * projection[i];
     }
   }
 
   // @ts-ignore
   @inline
-  export function calcLinearReverseIndex(dim: u32, projection: Uint32Array, restrict: Uint32Array, input: Uint32Array, output: Uint32Array): void {
-    const n = input.length;
+  export function calcLinearReverseIndex(dim: u32, shapeData: ArrayBuffer, size: u32, input_: ArrayBuffer, output_: ArrayBuffer): void {
+    const input = Uint32Array.wrap(input_, 0, size);
+    const output = Uint32Array.wrap(output_, 0, dim * size);
 
-    for (let u = 0; u < n; u++) {
-      for (let i: u32 = 0; i < dim; i++) output[u * dim + i] = (input[u] % restrict[i]) / projection[i];
+    const projection = getProjection(dim, shapeData);
+    const restrict = getRestrict(dim, shapeData);
+
+    for (let i: u32 = 0; i < dim; i++) {
+      for (let u: u32 = 0; u < size; u++) output[i * size + u] = (input[u] % restrict[i]) / projection[i];
     }
   }
 
 
-  export function binaryWith(dim: u32, shape1: Uint32Array, shape2: Uint32Array, input: Uint32Array, output: Uint32Array): void {
-    const n = input.length;
+  // @ts-ignore
+  @inline
+  export function binaryWith(dim: u32, shapeData1: ArrayBuffer, shapeData2: ArrayBuffer, size: u32, input_: ArrayBuffer, output_: ArrayBuffer): void {
+    const input = Uint32Array.wrap(input_, 0, dim * size);
+    const output = Uint32Array.wrap(output_, 0, dim * size);
 
-    if (n % dim !== 0) {
-      throw new RangeError("The length of index should be divided by dim");
-    }
+    const shape1 = getShape(dim, shapeData1);
+    const shape2 = getShape(dim, shapeData2);
 
-    for (let u = 0; u < n; u += dim) {
-      for (let i: u32 = 0; i < dim; i++) {
-
+    for (let i: u32 = 0; i < dim; i++) {
+      for (let u: u32 = 0; u < size; u += 1) {
         if (shape1[i] === shape2[i]) {
-          output[u + i] = input[u + i];
+          output[u + i * size] = input[u + i * size];
           continue;
         }
 
@@ -120,17 +124,14 @@ export namespace shape {
         const t2 = shape2[i];
 
         if (t1 === 1) {
-          output[u + i] = t2;
+          output[u + i * size] = t2;
           continue;
         }
 
         if (t2 === 1) {
-          output[u + i] = t1;
+          output[u + i * size] = t1;
           continue;
         }
-
-        throw new RangeError("Can not execute binary operation");
-
       }
     }
   }

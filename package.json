@@ -10,12 +10,12 @@
     "build": "webpack -c webpack.config.ts",
     "test": "npm run base -- jest",
     "prettier": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "asc": "asc ./src/assembly/index.ts -d ./src/wasmModule.d.ts --exportRuntime",
+    "asc": "asc ./src/assembly/index.ts -d ./src/wasmModule.d.ts --exportRuntime --enable simd",
     "asbuild:untouched": "npm run asc -- --target debug",
     "asbuild:optimized": "npm run asc -- -O3z --converge --target release",
     "asbuild": "npm run asbuild:untouched && npm run asbuild:optimized"
   },
-  "author": "",
+  "author": "akishichinibu@gmail.com",
   "license": "MIT",
   "devDependencies": {
     "chai": "^4.3.4",
@@ -30,12 +30,11 @@
     "ts-jest": "^27.1.2",
     "ts-node": "^9.1.1",
     "tsconfig-paths": "^3.12.0",
-    "typescript": "^4.2.3"
-  },
-  "dependencies": {
+    "typescript": "^4.2.3",
     "@assemblyscript/loader": "^0.19.22",
     "as-wasi": "^0.4.6",
-    "assemblyscript": "^0.19.22",
     "wasi": "^0.0.6"
+  },
+  "dependencies": {
   }
 }

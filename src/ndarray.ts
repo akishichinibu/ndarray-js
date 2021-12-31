@@ -5,7 +5,6 @@ import { isScalar } from './utils';
 import { IndexError, RunningTimeError } from './exception';
 import { Shape, NdArray } from './container';
 import { CouldBePromise, ScalerType } from './type';
-import c from './constants';
 import sp from './shape';
 
 type GenericShape = ArrayLike<number> | Shape;
@@ -130,7 +129,9 @@ interface Nd {
   cos: UnaryOperator;
 }
 
-export const nd = new Proxy(_, handler) as Nd;
+const nd = new Proxy(_, handler) as Nd;
+
+export default nd;
 
 // export const cos = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.cos, dtype);
 // export const tan = (operand: NdArray, dtype: ScalerType = 'f64') => unaryOperate(operand, Math.tan, dtype);

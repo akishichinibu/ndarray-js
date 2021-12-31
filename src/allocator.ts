@@ -1,30 +1,35 @@
 import wasm from 'src/wasm';
+import { RunningTimeError } from './exception';
 import { Ptr, ScalerType } from './type';
 
 class WasmMemoryPool {
-  private readonly ptrs: Map<Ptr, number>;
-  private readonly ptrsUsage: Map<Ptr, boolean>;
+  private readonly ptr2Size: Map<Ptr, number>;
+  private readonly ptr2Usage: Map<Ptr, boolean>;
   private readonly sizeToPtrs: Map<number, Set<Ptr>>;
 
   constructor() {
-    this.ptrs = new Map();
-    this.ptrsUsage = new Map();
+    this.ptr2Size = new Map();
+    this.ptr2Usage = new Map();
     this.sizeToPtrs = new Map();
   }
 
   allocate(size: number) {
     for (let ptr of this.sizeToPtrs.get(size) ?? []) {
-      if (!(this.ptrsUsage.get(ptr) ?? true)) {
-        this.ptrsUsage.set(ptr, true);
+      if (!(this.ptr2Usage.get(ptr) ?? true)) {
+        this.ptr2Usage.set(ptr, true);
         return ptr;
       }
     }
 
     const ptr = wasm.__new(size, 0);
-    this.ptrs.set(ptr, size);
-    this.ptrsUsage.set(ptr, true);
 
-    this.sizeToPtrs.set(ptr, (this.sizeToPtrs.get(ptr) ?? new Set()).add(ptr));
+    if (ptr === 0) {
+      throw new RunningTimeError(`Try to allocate memory with size ${size} but failed. `);
+    }
+
+    this.ptr2Size.set(ptr, size);
+    this.ptr2Usage.set(ptr, true);
+    this.sizeToPtrs.set(size, (this.sizeToPtrs.get(size) ?? new Set()).add(ptr));
 
     wasm.__pin(ptr);
     return ptr;
@@ -35,12 +40,12 @@ class WasmMemoryPool {
   }
 
   free(ptr: Ptr) {
-    if (!this.ptrs.has(ptr)) {
+    if (!this.ptr2Size.has(ptr)) {
       throw new Error(`Can not find the ptr with address ${ptr}. `);
     }
 
-    const size = this.ptrs.get(ptr)!;
-    const flag = this.ptrsUsage.get(ptr)!;
+    const size = this.ptr2Size.get(ptr)!;
+    const flag = this.ptr2Usage.get(ptr)!;
 
     if (flag === false) {
       throw new Error(`The address ${ptr} isn't in used. `);
@@ -50,7 +55,7 @@ class WasmMemoryPool {
       return this.freeImmediately(ptr);
     }
 
-    this.ptrsUsage.set(ptr, false);
+    this.ptr2Usage.set(ptr, false);
   }
 }
 
@@ -66,31 +71,14 @@ class MemoryAllocator {
     return new Uint32Array(buffer);
   }
 
-  // allocateWasm(dtype: ScalerType, size: number, initValue?: Array<number>) {
-  //   const id = wasm.dtypeIdMap.get(dtype);
-
-  //   if (id === undefined) {
-  //     throw new RunningTimeError(`Invalid data type ${dtype}`);
-  //   }
-
-  //   if (initValue) {
-  //     if (initValue.length !== size) {
-  //       throw new RunningTimeError(`The length of the initValue is not equal to ${size}`);
-  //     }
-  //   }
-
-  //   const ptr = wasm.__newArray(id, initValue ? initValue : size);
-  //   return ptr;
-  // }
-
   allocateWasm(size: number) {
     return wasmPool.allocate(size);
   }
 
   allocateWasmU32(size: number): [Ptr, Uint32Array] {
     const ptr = this.allocateWasm(Uint32Array.BYTES_PER_ELEMENT * size);
-    const view = wasm.__getArrayView(ptr);
-    return [ptr, new Uint32Array(view.buffer)];
+    const view = new Uint32Array(wasm.memory?.buffer!, ptr, size);
+    return [ptr, view];
   }
 
   freeWasm(ptr: Ptr) {

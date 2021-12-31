@@ -1,6 +1,5 @@
 import { ScalerType } from './type';
 
-
 namespace constants {
   export const dtypeWasmName = new Map<ScalerType, string>([
     ['i8', 'Int8'],

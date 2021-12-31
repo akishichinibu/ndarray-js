@@ -93,9 +93,10 @@ class BaseShape extends BaseShapePtr {
   }
 
   linearIndex(indexs: ArrayLike<ArrayLike<number>>) {
-    const [inputPtr, input] = allocator.allocateWasmU32(indexs.length * this.dim);
+    const n = indexs.length;
+    const [inputPtr, input] = allocator.allocateWasmU32(n * this.dim);
 
-    for (let u = 0; u < indexs.length; u++) {
+    for (let u = 0; u < n; u++) {
       const index = indexs[u];
 
       if (index.length !== this.dim) {
@@ -107,13 +108,12 @@ class BaseShape extends BaseShapePtr {
           throw new IndexError(`The index [${index[i]}] is out of bounds of dimension [${this.shape[i]}]`);
         }
 
-        input[u * this.dim + i] = index[i];
+        input[u + i * n] = index[i];
       }
     }
-
-    const [outputPtr, output] = allocator.allocateWasmU32(indexs.length);
-
-    wasm.shape.calcLinearIndex(this.dim, this.ptr, inputPtr, outputPtr);
+    
+    const [outputPtr, output] = allocator.allocateWasmU32(n);
+    wasm.shape.calcLinearIndex(this.dim, this.ptr, n, inputPtr, outputPtr);
     allocator.freeWasm(inputPtr);
     return output;
   }

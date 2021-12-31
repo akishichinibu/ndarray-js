@@ -1,6 +1,5 @@
 import { toCharacterStream, toTokenStream } from "src/expr";
 import { ASTNode } from "src/expr/ast";
-import { TokenType, functions } from "src/expr/constant";
 
 
 test('charter stream', () => {
