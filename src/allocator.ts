@@ -1,8 +1,9 @@
-import wasm from 'src/wasm';
+// import wasm from 'src/wasm';
+import core from 'src/core';
 import { RunningTimeError } from './exception';
-import { Ptr, ScalerType } from './type';
+import { getTypeConstructor, Ptr, ScalerType } from './type';
 
-class WasmMemoryPool {
+class WasmMemory {
   private readonly ptr2Size: Map<Ptr, number>;
   private readonly ptr2Usage: Map<Ptr, boolean>;
   private readonly sizeToPtrs: Map<number, Set<Ptr>>;
@@ -13,6 +14,11 @@ class WasmMemoryPool {
     this.sizeToPtrs = new Map();
   }
 
+  view(dtype: ScalerType, ptr: Ptr, size: number) {
+    const C = getTypeConstructor(dtype);
+    return new C(core.memory.buffer, ptr, size);
+  }
+
   allocate(size: number) {
     for (let ptr of this.sizeToPtrs.get(size) ?? []) {
       if (!(this.ptr2Usage.get(ptr) ?? true)) {
@@ -21,7 +27,8 @@ class WasmMemoryPool {
       }
     }
 
-    const ptr = wasm.__new(size, 0);
+    const ptr = core.allocate(size);
+    // const ptr = wasm.__new(size, 0);
 
     if (ptr === 0) {
       throw new RunningTimeError(`Try to allocate memory with size ${size} but failed. `);
@@ -31,12 +38,12 @@ class WasmMemoryPool {
     this.ptr2Usage.set(ptr, true);
     this.sizeToPtrs.set(size, (this.sizeToPtrs.get(size) ?? new Set()).add(ptr));
 
-    wasm.__pin(ptr);
+    // wasm.__pin(ptr);
     return ptr;
   }
 
   private freeImmediately(ptr: Ptr) {
-    return wasm.__unpin(ptr);
+    // return wasm.__unpin(ptr);
   }
 
   free(ptr: Ptr) {
@@ -59,7 +66,7 @@ class WasmMemoryPool {
   }
 }
 
-const wasmPool = new WasmMemoryPool();
+export const wasmMemory = new WasmMemory();
 
 class MemoryAllocator {
   allocate(size: number) {
@@ -72,17 +79,17 @@ class MemoryAllocator {
   }
 
   allocateWasm(size: number) {
-    return wasmPool.allocate(size);
+    return wasmMemory.allocate(size);
   }
 
   allocateWasmU32(size: number): [Ptr, Uint32Array] {
     const ptr = this.allocateWasm(Uint32Array.BYTES_PER_ELEMENT * size);
-    const view = new Uint32Array(wasm.memory?.buffer!, ptr, size);
+    const view = wasmMemory.view('u32', ptr, size) as Uint32Array;
     return [ptr, view];
   }
 
   freeWasm(ptr: Ptr) {
-    return wasmPool.free(ptr);
+    return wasmMemory.free(ptr);
   }
 }
 

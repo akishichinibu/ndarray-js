@@ -23,3 +23,12 @@ export function isNdArray(a: any) {
 export function isIterable(a: any): a is Iterable<any> {
   return typeof a[Symbol.iterator] === 'function';
 }
+
+export function timer<T>(fn: (...args: any[]) => Promise<T>, ...args: any[]): () => Promise<[T, number]> {
+  return async () => {
+    const t0 = new Date();
+    const r = await fn(...args);
+    const t1 = new Date();
+    return [r, t1.getTime() - t0.getTime()];
+  }
+}

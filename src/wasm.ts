@@ -19,7 +19,7 @@ const imports = {
 };
 
 // const bundlePath = path.resolve(__dirname, '..', 'build', 'optimized.wasm');
-const bundlePath = path.resolve(__dirname, "..", "build", "untouched.wasm");
+const bundlePath = path.resolve(__dirname, '..', 'build', 'untouched.wasm');
 const wasmModule = loader.instantiateSync<WasmModuleInterface>(fs.readFileSync(bundlePath), imports);
 wasi.start(wasmModule.instance);
 

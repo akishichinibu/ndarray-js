@@ -2,19 +2,19 @@ import { expect } from "chai";
 import { nd } from "src";
 
 
-test('a array whose elements are all 0', () => {
+test('a array whose elements are all 0', async () => {
   const Ss = [3, 6, 5, 3];
-  const s = nd.zeros(Ss);
+  const s = await nd.zeros(Ss);
   expect(s.size).to.be.equal(Ss.reduce((prev, cur) => prev * cur, 1));
   for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(0);
   s.free();
 });
 
 
-test('a array whose elements are all 1', () => {
+test('a array whose elements are all 1', async () => {
   const Ss = [3, 6, 5, 3];
 
-  const s = nd.ones(Ss);
+  const s = await nd.ones(Ss);
   for (let i = 0; i < s.size; i++) expect(s.buffer[i]).to.be.equal(1);
   s.free();
 });
@@ -41,11 +41,11 @@ test('the construction from a array', async () => {
 });
 
 
-test('flat a array and test if it can be accessed correctly', () => {
+test('flat a array and test if it can be accessed correctly', async () => {
   const H = 3;
   const W = 6;
 
-  const s = nd.random([H, W]);
+  const s = await nd.random([H, W]);
   s.show();
 
   const s2 = s.reshape([H, 2, 3]);
@@ -70,11 +70,11 @@ test('flat a array and test if it can be accessed correctly', () => {
 
 
 test('inplace unary operation', async () => {
-  const H = 60;
-  const W = 60;
+  const H = 65;
+  const W = 65;
 
-  const s1 = nd.random([H, W,], { maxValue: (1 << 31) });
-  const s2 = nd.random([H, W,]);
+  const s1 = await nd.random([H, W,], { maxValue: (1 << 31) });
+  const s2 = await nd.random([H, 1,]);
   s1.show();
 
   const s3 = await nd.sin(s1);
@@ -83,7 +83,7 @@ test('inplace unary operation', async () => {
   const s4 = await s3.add(5);
   s4.show();
 
-  const s5 = await s3.add(s2);
+  const s5 = await s4.add(s2);
   s5.show();
 });
 

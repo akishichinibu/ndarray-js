@@ -58,6 +58,9 @@ namespace constants {
     Function = 5,
     Variable = 6
   }
+
+  export type UnaryOperatorSymbol = `${Functions}`;
+  export type BinaryOperatorSymbol = 'add' | 'sub' | 'mul' | 'div';
 }
 
 export default constants;

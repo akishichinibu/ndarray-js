@@ -1,10 +1,10 @@
-import allocator from 'src/allocator';
+import core from 'src/core';
 import { Ptr } from 'src/type';
 
 export abstract class PtrBase {
   abstract readonly ptr: Ptr;
 
   free() {
-    allocator.freeWasm(this.ptr);
+    core.memory.free(this.ptr);
   }
 }

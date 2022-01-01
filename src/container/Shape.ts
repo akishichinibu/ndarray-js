@@ -1,6 +1,3 @@
-import allocator from 'src/allocator';
-import wasm from 'src/wasm';
-
 import sp from 'src/shape';
 import { Ptr } from 'src/type';
 import { IndexError, RunningTimeError } from 'src/exception';
@@ -8,6 +5,7 @@ import { between, isScalar } from 'src/utils';
 
 import { checkIfShapeUnifyGenerator } from './utils';
 import { PtrBase } from './PtrBase';
+import core from 'src/core';
 
 abstract class BaseShapePtr extends PtrBase {
   readonly dim: number;
@@ -21,19 +19,14 @@ abstract class BaseShapePtr extends PtrBase {
       throw new IndexError("The dimension of the shape cann't not be 0. ");
     }
 
-    this.ptr = allocator.allocateWasm((4 * this.dim + 1) * Uint32Array.BYTES_PER_ELEMENT);
+    this.ptr = core.memory.allocateTypedPtr('u32', 3 * this.dim + 1);
     this.shape.set(shapeArray);
-
-    wasm.shape.init(this.dim, this.ptr);
-  }
-
-  private get ptrBuffer() {
-    return new Uint32Array(wasm.memory?.buffer!, this.ptr, 4 * this.dim + 1);
+    core.init_shape(this.dim, this.ptr);
+    console.log(core.memory.view("u32", this.ptr, 0, this.dim * 3 + 1));
   }
 
   private offsetView(d: number) {
-    const t = d * this.dim * Uint32Array.BYTES_PER_ELEMENT;
-    return new Uint32Array(wasm.memory?.buffer!, this.ptr + t, this.dim);
+    return core.memory.view('u32', this.ptr, d * this.dim, this.dim);
   }
 
   get shape() {
@@ -48,12 +41,8 @@ abstract class BaseShapePtr extends PtrBase {
     return this.offsetView(2);
   }
 
-  get buffer() {
-    return this.offsetView(3);
-  }
-
   get size() {
-    return this.ptrBuffer[4 * this.dim];
+    return core.memory.view('u32', this.ptr, 3 * this.dim, 1)[0];
   }
 }
 
@@ -72,7 +61,7 @@ class BaseShape extends BaseShapePtr {
 
   static async getShapeFromAnyArray(anyArray: any): Promise<Uint32Array> {
     if (isScalar(anyArray)) {
-      return allocator.allocateU32(0);
+      return new Uint32Array();
     }
 
     const s = [];
@@ -80,7 +69,7 @@ class BaseShape extends BaseShapePtr {
 
     await BaseShape.checkIfShapeUnify(anyArray, s);
 
-    const buffer = allocator.allocateU32(s.length);
+    const buffer = new Uint32Array(s.length);
     for (let i = 0; i < s.length; i++) buffer[i] = s[i];
     return buffer;
   }
@@ -94,7 +83,7 @@ class BaseShape extends BaseShapePtr {
 
   linearIndex(indexs: ArrayLike<ArrayLike<number>>) {
     const n = indexs.length;
-    const [inputPtr, input] = allocator.allocateWasmU32(n * this.dim);
+    const [inputPtr, input] = core.memory.allocateTyped('u32', n * this.dim);
 
     for (let u = 0; u < n; u++) {
       const index = indexs[u];
@@ -111,10 +100,10 @@ class BaseShape extends BaseShapePtr {
         input[u + i * n] = index[i];
       }
     }
-    
-    const [outputPtr, output] = allocator.allocateWasmU32(n);
-    wasm.shape.calcLinearIndex(this.dim, this.ptr, n, inputPtr, outputPtr);
-    allocator.freeWasm(inputPtr);
+
+    const [outputPtr, output] = core.memory.allocateTyped('u32', n);
+    core.calc_linear_index(this.dim, this.ptr, n, inputPtr, outputPtr);
+    core.memory.free(inputPtr);
     return output;
   }
 
@@ -136,10 +125,10 @@ class BaseShape extends BaseShapePtr {
   //   return output;
   // }
 
-  boardcastUnsafe(index: Uint32Array) {
-    for (let i = 0; i < this.dim; i++) this.buffer[i] = this.buffer[i] === 1 ? 0 : index[i];
-    return this.buffer;
-  }
+  // boardcastUnsafe(index: Uint32Array) {
+  //   for (let i = 0; i < this.dim; i++) this.buffer[i] = this.buffer[i] === 1 ? 0 : index[i];
+  //   return this.buffer;
+  // }
 
   binaryOperation(otherShape: BaseShape) {
     if (this.dim !== otherShape.dim) {

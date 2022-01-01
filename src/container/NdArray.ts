@@ -1,13 +1,12 @@
-import allocator from 'src/allocator';
 import { IndexError, RunningTimeError } from 'src/exception';
 import { getTypeConstructor, Ptr, ScalerType } from 'src/type';
 import constants from 'src/constants';
-import wasm, { dtypeIdMap } from 'src/wasm';
 
 import { PtrBase } from './PtrBase';
 import { Shape } from './Shape';
 import { NumericVariableType, VariableType } from 'src/expr/utils';
 import { isScalar } from 'src/utils';
+import core from 'src/core';
 
 interface NdArrayConstructProps {
   shape: Shape;
@@ -29,12 +28,11 @@ abstract class BaseNdArrayPtr extends PtrBase {
       throw new RunningTimeError(`Invalid data type ${this.dtype}`);
     }
 
-    this.ptr = props.bufferPtr ?? allocator.allocateWasm(this.size * getTypeConstructor(this.dtype).BYTES_PER_ELEMENT);
+    this.ptr = props.bufferPtr ?? core.memory.allocateTypedPtr(this.dtype, this.size);
   }
 
   get buffer() {
-    const C = getTypeConstructor(this.dtype);
-    return new C(wasm.memory?.buffer!, this.ptr, this.size);
+    return core.memory.view(this.dtype, this.ptr, 0, this.size);
   }
 
   get dim() {
@@ -45,14 +43,16 @@ abstract class BaseNdArrayPtr extends PtrBase {
     return this.shapeObj.size;
   }
 
+  get byteLength() {
+    return this.buffer.byteLength;
+  }
+
   get shape() {
     return this.shapeObj.shape;
   }
-
-  get dtypeId() {
-    return dtypeIdMap.get(this.dtype)!;
-  }
 }
+
+type BinaryOperator = "add" | "sub" | "mul" | "div";
 
 abstract class BaseNdArray extends BaseNdArrayPtr {
   at(...index: Array<number>): number {
@@ -74,52 +74,31 @@ abstract class BaseNdArray extends BaseNdArrayPtr {
     return this;
   }
 
-  async add(value: NumericVariableType) {
+  async binaryOperate(operator: BinaryOperator, value: NumericVariableType) {
     if (isScalar(value)) {
-      const result = new NdArray({
-        shape: this.shapeObj
-      });
+      const result = new NdArray({ shape: this.shapeObj });
 
-      wasm.binaryScalar2Operator(
-        wasm.Operator.Binary.Add,
-        this.size,
+      const [ptrV, v] = core.memory.allocateTyped("f64", 1);
+      v[0] = value;
 
-        this.ptr,
-        this.dtypeId,
+      const f = core[`operator_binary_scalar2_${operator}_${this.dtype}_f64_${result.dtype}`];
+      f(this.size, this.ptr, ptrV, result.ptr);
 
-        value,
-
-        result.ptr,
-        result.dtypeId
-      );
+      core.memory.free(ptrV);
       return result;
     } else {
       const v = await value;
       const resultShape = this.shapeObj.binaryOperation(v.shapeObj);
+      const result = new NdArray({ shape: resultShape });
 
-      const result = new NdArray({
-        shape: resultShape
-      });
-
-      wasm.binaryOperator(
-        wasm.Operator.Binary.Add,
-        this.shapeObj.ptr,
-        this.ptr,
-        this.dtypeId,
-
-        v.shapeObj.ptr,
-        v.ptr,
-        v.dtypeId,
-
-        this.dim,
-
-        result.shapeObj.ptr,
-        result.ptr,
-        result.dtypeId
-      );
-
+      const f = core[`operator_binary_${operator}_${this.dtype}_${v.dtype}_${result.dtype}`];
+      f(this.shapeObj.ptr, this.ptr, v.shapeObj.ptr, v.ptr, result.dim, result.shapeObj.ptr, result.ptr);
       return result;
     }
+  }
+
+  async add(value: NumericVariableType) {
+    return await this.binaryOperate("add", value);
   }
 }
 

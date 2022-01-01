@@ -34,6 +34,10 @@ test("get shape from an array", async () => {
   expect(Array.from(s)).to.have.ordered.members([1, 2, 3]);
 
   const ss = sp.shape(s);
+  console.log(ss.projection);
+  console.log(ss.restrict);
+  console.log(ss.size);
+  console.log(ss.shape);
   expect(ss.size).to.be.eq(6);
 
   const [i1, i2] = ss.linearIndex([[0, 1, 2], [0, 0, 1]]);

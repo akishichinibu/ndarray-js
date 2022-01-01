@@ -11,7 +11,7 @@ type FloatType = `${FlotTypePrefix}${FloatBitLength}`;
 
 export type TypedScalerType = IntegerType | UnsignedIntegerType | FloatType;
 
-export type ScalerType = TypedScalerType | 'boolean';
+export type ScalerType = TypedScalerType;
 
 export type Ptr = number;
 
@@ -33,10 +33,12 @@ export function getTypeConstructor(dtype: ScalerType) {
       return Float32Array;
     case 'f64':
       return Float64Array;
-    case 'boolean':
-      return Uint8Array;
+    // case 'boolean':
+    //   return Uint8Array;
   }
 }
+
+export type TypedArray = InstanceType<ReturnType<typeof getTypeConstructor>>;
 
 export interface NumericArray extends ArrayLike<number> {
   [n: number]: number;

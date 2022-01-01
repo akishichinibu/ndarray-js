@@ -1,4 +1,4 @@
-import wasm, { unaryOperatorIdMap } from 'src/wasm';
+import core from 'src/core';
 
 import { fromAnyArrayGenerator } from './container/utils';
 import { isScalar } from './utils';
@@ -42,18 +42,24 @@ interface FillOptions {
   dtype?: ScalerType;
 }
 
-function fill(shape_: GenericShape, value: number, options?: FillOptions) {
+async function fill(shape_: GenericShape, value: number, options?: FillOptions) {
   const a = fromShape(shape_, options?.dtype);
-  wasm.ndarray.fill(a.size, a.ptr, a.dtypeId, value);
+
+  const [vPtr, v] = core.memory.allocateTyped(a.dtype, 1);
+  v[0] = value;
+  
+  const f = core[`operator_fill_${a.dtype}`];
+  f(a.size, a.ptr, vPtr);
+  core.memory.free(vPtr);
   return a;
 }
 
-function zeros(shape_: GenericShape, options?: FillOptions) {
-  return fill(shape_, 0, options);
+async function zeros(shape_: GenericShape, options?: FillOptions) {
+  return await fill(shape_, 0, options);
 }
 
-function ones(shape_: GenericShape, options?: FillOptions) {
-  return fill(shape_, 1, options);
+async function ones(shape_: GenericShape, options?: FillOptions) {
+  return await fill(shape_, 1, options);
 }
 
 interface RandomOptions {
@@ -61,35 +67,26 @@ interface RandomOptions {
   maxValue?: number;
 }
 
-function random(shape_: GenericShape, options?: RandomOptions): NdArray {
+async function random(shape_: GenericShape, options?: RandomOptions) {
   const a = fromShape(shape_, options?.dtype);
-  wasm.ndarray.randomFill(a.size, a.ptr, a.dtypeId, options?.maxValue);
+  for (let i = 0; i < a.size; i++) a.buffer[i] = Math.random() * (options?.maxValue ?? 1);
+  // const f = core[`operator_fill_${a.dtype}`];
+  // f(a.size, a.ptr, 1);
   return a;
-}
-
-function add(operand1: GenericOperand, operand2: GenericOperand) {
-  if (isScalar(operand1) && isScalar(operand2)) {
-    return operand1 + operand2;
-  }
 }
 
 type UnaryOperator = (operand: NdArray) => Promise<NdArray>;
 
-async function unaryOperate(operand_: CouldBePromise<NdArray>, operator: string, dtype: ScalerType): Promise<NdArray> {
+
+type UnaryOperatorSymbol = "sin" | "cos" | "tan" | "exp" | "ln";
+
+async function unaryOperate(operand_: CouldBePromise<NdArray>, operator: UnaryOperatorSymbol, dtype: ScalerType): Promise<NdArray> {
   const operand = await operand_;
   const size = operand.size;
   const result = new NdArray({ shape: operand.shapeObj, dtype });
 
-  wasm.unaryOperator(
-    unaryOperatorIdMap.get(operator)!,
-    size,
-
-    operand.ptr,
-    operand.dtypeId,
-    result.ptr,
-    result.dtypeId
-  );
-
+  const f = core[`operator_unary_${operator}_${operand.dtype}_${dtype}`];
+  f(size, operand.ptr, result.ptr);
   return result;
 }
 
